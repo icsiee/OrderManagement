@@ -2,6 +2,14 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .forms import RegisterForm
 
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import RegisterForm
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import RegisterForm
+
 def register(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
@@ -15,6 +23,8 @@ def register(request):
         form = RegisterForm()
 
     return render(request, 'register.html', {'form': form})
+
+
 
 
 # Giriş (Login) fonksiyonu
