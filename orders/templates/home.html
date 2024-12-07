@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ana Sayfa</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <!-- Mesajları Göster -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <div class="container text-center">
+        <h1>Hoş Geldiniz!</h1>
+
+        {% if user.is_authenticated %}
+            <p>Merhaba, {{ user.customer_name }}! Hesabınıza başarıyla giriş yaptınız.</p>
+            <a href="{% url 'logout' %}" class="btn btn-danger">Çıkış Yap</a>
+        {% else %}
+            <p>Hesabınız yok mu? <a href="{% url 'register' %}" class="btn btn-primary">Kayıt Ol</a></p>
+            <p>Zaten bir hesabınız var mı? <a href="{% url 'login' %}" class="btn btn-secondary">Giriş Yap</a></p>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
