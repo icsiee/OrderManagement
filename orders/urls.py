@@ -8,6 +8,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),  # Çıkış yapma için
     path('admin-login/', views.admin_login, name='admin_login'),
     path('admin-dashboard/', views.admin_dashboard, name='admin_dashboard'),
-
+path('customer-login/', views.customer_login, name='customer_login'),
+    path('admin-login/', views.admin_login, name='admin_login'),
 
 ]

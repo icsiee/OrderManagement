@@ -3,12 +3,14 @@ from django.db import models
 
 
 # Customer model (User model for register/login)
-class Customer(models.Model):
-    customer_id = models.AutoField(primary_key=True)
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+class Customer(AbstractUser):
+    # We extend the built-in User model by adding custom fields
     customer_name = models.CharField(max_length=100, unique=True)
-    password = models.CharField(max_length=255)
     is_admin = models.BooleanField(default=False)
-    budget = models.DecimalField(max_digits=10, decimal_places=2)
+    budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     customer_type = models.CharField(
         max_length=8,
         choices=[('Standard', 'Standard'), ('Premium', 'Premium')],
@@ -71,3 +73,70 @@ class Log(models.Model):
 
     def __str__(self):
         return f"Log {self.log_id} for Order {self.order.order_id}"
+
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.hashers import check_password
+from .models import Customer
+
+# Customer login view
+def customer_login(request):
+    if request.method == "POST":
+        customer_name = request.POST.get('customer_name')
+        password = request.POST.get('password')
+
+        try:
+            # Check if the customer exists and is not an admin
+            customer = Customer.objects.get(customer_name=customer_name)
+
+            if customer.is_admin:
+                messages.error(request, "Admin girişine izniniz yok.")
+                return redirect('customer_login')
+
+            # Check if the password is correct
+            if check_password(password, customer.password):
+                # Log the user in
+                login(request, customer)
+                return redirect('home')  # Redirect to the homepage or dashboard
+            else:
+                messages.error(request, "Şifre hatalı.")
+                return redirect('customer_login')
+
+        except Customer.DoesNotExist:
+            messages.error(request, "Kullanıcı adı bulunamadı.")
+            return redirect('customer_login')
+
+    return render(request, 'customer_login.html')
+
+# Admin login view
+def admin_login(request):
+    if request.method == "POST":
+        customer_name = request.POST.get('customer_name')
+        password = request.POST.get('password')
+
+        try:
+            # Check if the user exists and is an admin
+            customer = Customer.objects.get(customer_name=customer_name)
+
+            if not customer.is_admin:
+                messages.error(request, "Customer girişine izniniz yok.")
+                return redirect('admin_login')
+
+            # Check if the password is correct
+            if check_password(password, customer.password):
+                # Log the user in
+                login(request, customer)
+                return redirect('admin_dashboard')  # Redirect to the admin dashboard
+            else:
+                messages.error(request, "Şifre hatalı.")
+                return redirect('admin_login')
+
+        except Customer.DoesNotExist:
+            messages.error(request, "Kullanıcı adı bulunamadı.")
+            return redirect('admin_login')
+
+    return render(request, 'admin_login.html')
+
+

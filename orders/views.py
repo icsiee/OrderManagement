@@ -5,47 +5,25 @@ from .models import Customer
 from django.contrib.auth.hashers import make_password, check_password
 
 # Kayıt (Register) fonksiyonu
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import CustomerRegistrationForm
+
 def register(request):
     if request.method == "POST":
-        customer_name = request.POST.get("customer_name")
-        password = request.POST.get("password")
-        budget = request.POST.get("budget")
-
-        # Bilgileri kontrol et
-        if not customer_name or not password or not budget:
-            messages.error(request, "Tüm alanları doldurduğunuzdan emin olun.")
-            return redirect('register')
-
-        # Kullanıcı adı benzersiz mi kontrol et
-        if Customer.objects.filter(customer_name=customer_name).exists():
-            messages.error(request, "Bu kullanıcı adı zaten mevcut.")
-            return redirect('register')
-
-        try:
-            # Bütçe aralığını kontrol et
-            budget = float(budget)
-            if budget < 500 or budget > 3000:
-                messages.error(request, "Bütçe miktarı 500 ile 3000 TL arasında olmalıdır.")
-                return redirect('register')
-
-            # Yeni müşteri oluştur
-            hashed_password = make_password(password)
-            customer = Customer(
-                customer_name=customer_name,
-                password=hashed_password,
-                budget=budget,
-                total_spent=0
-            )
-            customer.save()
-
-            # Başarı mesajını ayarla
+        form = CustomerRegistrationForm(request.POST)
+        if form.is_valid():
+            form.save()
             messages.success(request, "Kayıt başarılı! Giriş yapabilirsiniz.")
             return redirect('home')  # Ana sayfaya yönlendirme
-        except Exception as e:
-            messages.error(request, f"Kayıt sırasında bir hata oluştu: {str(e)}")
-            return redirect('register')
+        else:
+            messages.error(request, "Lütfen tüm alanları doğru şekilde doldurun.")
+    else:
+        form = CustomerRegistrationForm()
 
-    return render(request, 'register.html')
+    return render(request, 'register.html', {'form': form})
+
+
 
 # Giriş (Login) fonksiyonu
 def login_view(request):
@@ -107,3 +85,68 @@ def logout_view(request):
     logout(request)
     messages.success(request, "Başarıyla çıkış yaptınız!")
     return redirect('home')
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.hashers import check_password
+from .models import Customer
+
+# Customer login view
+def customer_login(request):
+    if request.method == "POST":
+        customer_name = request.POST.get('customer_name')
+        password = request.POST.get('password')
+
+        try:
+            # Check if the customer exists and is not an admin
+            customer = Customer.objects.get(customer_name=customer_name)
+
+            if customer.is_admin:
+                messages.error(request, "Admin girişine izniniz yok.")
+                return redirect('customer_login')
+
+            # Check if the password is correct
+            if check_password(password, customer.password):
+                # Log the user in
+                login(request, customer)
+                return redirect('home')  # Redirect to the homepage or dashboard
+            else:
+                messages.error(request, "Şifre hatalı.")
+                return redirect('customer_login')
+
+        except Customer.DoesNotExist:
+            messages.error(request, "Kullanıcı adı bulunamadı.")
+            return redirect('customer_login')
+
+    return render(request, 'customer_login.html')
+
+# Admin login view
+def admin_login(request):
+    if request.method == "POST":
+        customer_name = request.POST.get('customer_name')
+        password = request.POST.get('password')
+
+        try:
+            # Check if the user exists and is an admin
+            customer = Customer.objects.get(customer_name=customer_name)
+
+            if not customer.is_admin:
+                messages.error(request, "Customer girişine izniniz yok.")
+                return redirect('admin_login')
+
+            # Check if the password is correct
+            if check_password(password, customer.password):
+                # Log the user in
+                login(request, customer)
+                return redirect('admin_dashboard')  # Redirect to the admin dashboard
+            else:
+                messages.error(request, "Şifre hatalı.")
+                return redirect('admin_login')
+
+        except Customer.DoesNotExist:
+            messages.error(request, "Kullanıcı adı bulunamadı.")
+            return redirect('admin_login')
+
+    return render(request, 'admin_login.html')
+

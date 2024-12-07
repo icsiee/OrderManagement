@@ -29,6 +29,9 @@ ALLOWED_HOSTS = []
 LOGIN_REDIRECT_URL = '/'  # Giriş yaptıktan sonra anasayfaya yönlendirme
 LOGOUT_REDIRECT_URL = '/'  # Çıkış yaptıktan sonra anasayfaya yönlendirme
 
+# settings.py
+
+AUTH_USER_MODEL = 'orders.Customer'  # Replace 'yourapp' with your app's name
 
 
 # Application definition

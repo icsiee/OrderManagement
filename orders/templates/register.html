@@ -4,16 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kayıt Ol</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <div class="row justify-content-center">
-            <div class="col-md-6">
+            <div class="col-md-5">
                 <form method="POST" class="mt-5">
                     {% csrf_token %}
-
                     <h1 class="text-center">Kayıt Ol</h1>
 
                     <!-- Mesajlar -->
@@ -28,39 +26,53 @@
                         </div>
                     {% endif %}
 
+                    <!-- Form -->
                     <div class="form-group">
                         <label for="customer_name">Kullanıcı Adı:</label>
-                        <input type="text" id="customer_name" name="customer_name" class="form-control" required>
+                        {{ form.customer_name }}
+                        {% if form.customer_name.errors %}
+                            <div class="text-danger">
+                                {% for error in form.customer_name.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
 
                     <div class="form-group">
                         <label for="password">Şifre:</label>
-                        <input type="password" id="password" name="password" class="form-control" required>
+                        {{ form.password }}
+                        {% if form.password.errors %}
+                            <div class="text-danger">
+                                {% for error in form.password.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
 
                     <div class="form-group">
                         <label for="budget">Bütçe:</label>
-                        <input type="number" step="0.01" id="budget" name="budget" class="form-control"
-                               min="500" max="3000" required>
-                        <small class="form-text text-muted">
-                            Lütfen 500 ile 3000 TL arasında bir bütçe girin.
-                        </small>
+                        {{ form.budget }}
+                        {% if form.budget.errors %}
+                            <div class="text-danger">
+                                {% for error in form.budget.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
                     </div>
 
-                    <button type="submit" class="btn btn-primary btn-block">Kaydol</button>
+                    <button type="submit" class="btn btn-primary btn-block">Kayıt Ol</button>
 
                     <p class="text-center mt-3">
-                        Zaten bir hesabınız var mı? <a href="{% url 'login' %}">Giriş Yap</a>
-                    </p>
-                    <p class="text-center">
-                        <a href="{% url 'home' %}">Geri Dön</a>
+                        Hesabınız var mı? <a href="{% url 'login' %}">Giriş Yap</a>
                     </p>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
