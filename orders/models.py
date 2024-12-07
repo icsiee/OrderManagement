@@ -6,8 +6,12 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
 class Customer(AbstractUser):
-    # We extend the built-in User model by adding custom fields
+    # username alanı yerine customer_name kullanılır
+    username = None  # AbstractUser'dan gelen username'ı devre dışı bırakıyoruz
     customer_name = models.CharField(max_length=100, unique=True)
     is_admin = models.BooleanField(default=False)
     budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -18,6 +22,9 @@ class Customer(AbstractUser):
     )
     total_spent = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
+    USERNAME_FIELD = 'customer_name'
+
+
     def save(self, *args, **kwargs):
         if self.total_spent > 2000:
             self.customer_type = 'Premium'
@@ -25,6 +32,7 @@ class Customer(AbstractUser):
 
     def __str__(self):
         return self.customer_name
+
 
 
 

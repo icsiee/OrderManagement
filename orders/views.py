@@ -1,28 +1,20 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth import login, logout
-from django.contrib import messages
-from .models import Customer
-from django.contrib.auth.hashers import make_password, check_password
+from django.views.decorators.csrf import csrf_exempt
 
-# Kayıt (Register) fonksiyonu
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from .forms import CustomerRegistrationForm
+from .forms import RegisterForm
 
 def register(request):
     if request.method == "POST":
-        form = CustomerRegistrationForm(request.POST)
+        form = RegisterForm(request.POST)
         if form.is_valid():
-            form.save()
+            form.save()  # Kullanıcıyı kaydet
             messages.success(request, "Kayıt başarılı! Giriş yapabilirsiniz.")
-            return redirect('home')  # Ana sayfaya yönlendirme
+            return redirect('login')  # Giriş sayfasına yönlendir
         else:
-            messages.error(request, "Lütfen tüm alanları doğru şekilde doldurun.")
+            messages.error(request, "Lütfen tüm alanları doğru şekilde doldurduğunuzdan emin olun.")
     else:
-        form = CustomerRegistrationForm()
+        form = RegisterForm()
 
     return render(request, 'register.html', {'form': form})
-
 
 
 # Giriş (Login) fonksiyonu
@@ -49,24 +41,6 @@ def login_view(request):
     return render(request, 'login.html')
 
 # Admin Giriş (Login) fonksiyonu
-def admin_login(request):
-    if request.method == "POST":
-        customer_name = request.POST.get("customer_name")
-        password = request.POST.get("password")
-
-        # Admini doğrulama
-        try:
-            admin = Customer.objects.get(customer_name=customer_name, is_admin=True)
-            if check_password(password, admin.password):  # Şifre doğrulama
-                login(request, admin)
-                messages.success(request, "Admin girişi başarılı!")
-                return redirect('admin_dashboard')  # Admin paneline yönlendirme
-            else:
-                messages.error(request, "Geçersiz şifre!")
-        except Customer.DoesNotExist:
-            messages.error(request, "Admin kullanıcı bulunamadı.")
-
-    return render(request, 'login.html')
 
 # Ana sayfa (Home) fonksiyonu
 def home(request):
@@ -86,67 +60,76 @@ def logout_view(request):
     messages.success(request, "Başarıyla çıkış yaptınız!")
     return redirect('home')
 
+
+
+
 from django.shortcuts import render, redirect
+from django.contrib.auth import login, logout
 from django.contrib import messages
-from django.contrib.auth import authenticate, login
-from django.contrib.auth.hashers import check_password
 from .models import Customer
+from django.contrib.auth.hashers import check_password
 
-# Customer login view
+
+@csrf_exempt
+
+# Kullanıcı Girişi (Customer Login)
 def customer_login(request):
+    customer_messages = []  # Müşteri girişine özel mesajlar
     if request.method == "POST":
-        customer_name = request.POST.get('customer_name')
-        password = request.POST.get('password')
+        customer_name = request.POST.get("customer_name")
+        password = request.POST.get("password")
 
         try:
-            # Check if the customer exists and is not an admin
             customer = Customer.objects.get(customer_name=customer_name)
 
-            if customer.is_admin:
-                messages.error(request, "Admin girişine izniniz yok.")
-                return redirect('customer_login')
-
-            # Check if the password is correct
-            if check_password(password, customer.password):
-                # Log the user in
+            if customer.is_admin:  # Admin müşteri girişine izin verilmez
+                customer_messages.append("Admin kullanıcı müşteri formunu kullanamaz.")
+            elif check_password(password, customer.password):
                 login(request, customer)
-                return redirect('home')  # Redirect to the homepage or dashboard
+                messages.success(request, "Müşteri girişi başarılı!")
+                return redirect('customer_dashboard')
             else:
-                messages.error(request, "Şifre hatalı.")
-                return redirect('customer_login')
-
+                customer_messages.append("Şifre hatalı.")
         except Customer.DoesNotExist:
-            messages.error(request, "Kullanıcı adı bulunamadı.")
-            return redirect('customer_login')
+            customer_messages.append("Böyle bir müşteri bulunamadı.")
 
-    return render(request, 'customer_login.html')
+    return render(request, 'registration/login.html', {'customer_messages': customer_messages})
 
-# Admin login view
+@csrf_exempt
+
+# Admin Girişi (Admin Login)
 def admin_login(request):
+    admin_messages = []  # Admin girişine özel mesajlar
     if request.method == "POST":
-        customer_name = request.POST.get('customer_name')
-        password = request.POST.get('password')
+        customer_name = request.POST.get("customer_name")
+        password = request.POST.get("password")
 
         try:
-            # Check if the user exists and is an admin
-            customer = Customer.objects.get(customer_name=customer_name)
+            admin = Customer.objects.get(customer_name=customer_name)
 
-            if not customer.is_admin:
-                messages.error(request, "Customer girişine izniniz yok.")
-                return redirect('admin_login')
-
-            # Check if the password is correct
-            if check_password(password, customer.password):
-                # Log the user in
-                login(request, customer)
-                return redirect('admin_dashboard')  # Redirect to the admin dashboard
+            if not admin.is_admin:  # Müşteri admin formunu kullanamaz
+                admin_messages.append("Müşteri hesabıyla admin girişi yapamazsınız.")
+            elif check_password(password, admin.password):
+                login(request, admin)
+                messages.success(request, "Admin girişi başarılı!")
+                return redirect('admin_dashboard')
             else:
-                messages.error(request, "Şifre hatalı.")
-                return redirect('admin_login')
-
+                admin_messages.append("Şifre hatalı.")
         except Customer.DoesNotExist:
-            messages.error(request, "Kullanıcı adı bulunamadı.")
-            return redirect('admin_login')
+            admin_messages.append("Böyle bir admin bulunamadı.")
 
-    return render(request, 'admin_login.html')
+    return render(request, 'registration/login.html', {'admin_messages': admin_messages})
+
+from django.contrib.auth.decorators import login_required
+
+@csrf_exempt
+@login_required
+def customer_dashboard(request):
+    customer_name = request.user.customer_name  # Giriş yapan müşterinin adı
+    return render(request, 'customer_dashboard.html', {'customer_name': customer_name})
+
+@csrf_exempt
+
+def admin_dashboard(request):
+    return render(request, 'admin_dashboard.html')
 

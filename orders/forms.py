@@ -1,12 +1,12 @@
 from django import forms
-from django.core.exceptions import ValidationError
+from django.contrib.auth.forms import UserCreationForm
 from .models import Customer
-from django.contrib.auth.hashers import make_password
 
-
-class CustomerRegistrationForm(forms.ModelForm):
-    password = forms.CharField(widget=forms.PasswordInput, max_length=255)
-    budget = forms.DecimalField(max_digits=10, decimal_places=2)
+class RegisterForm(forms.ModelForm):
+    # customer_name alanını ekliyoruz
+    customer_name = forms.CharField(max_length=100, required=True)
+    password = forms.CharField(widget=forms.PasswordInput(), required=True)
+    budget = forms.DecimalField(max_digits=10, decimal_places=2, required=True)
 
     class Meta:
         model = Customer
@@ -15,18 +15,19 @@ class CustomerRegistrationForm(forms.ModelForm):
     def clean_customer_name(self):
         customer_name = self.cleaned_data.get('customer_name')
         if Customer.objects.filter(customer_name=customer_name).exists():
-            raise ValidationError("Bu kullanıcı adı zaten mevcut.")
+            raise forms.ValidationError('Bu kullanıcı adı zaten alınmış.')
         return customer_name
 
     def clean_budget(self):
         budget = self.cleaned_data.get('budget')
         if budget < 500 or budget > 3000:
-            raise ValidationError("Bütçe miktarı 500 ile 3000 TL arasında olmalıdır.")
+            raise forms.ValidationError('Bütçe 500 ile 3000 TL arasında olmalıdır.')
         return budget
 
     def save(self, commit=True):
+        # Şifreyi güvenli bir şekilde hashlemek
         customer = super().save(commit=False)
-        customer.password = make_password(self.cleaned_data['password'])  # Hash the password
+        customer.set_password(self.cleaned_data['password'])
         if commit:
             customer.save()
         return customer
