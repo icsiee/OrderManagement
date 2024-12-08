@@ -105,9 +105,19 @@ def customer_login(request):
 
     return render(request, 'registration/login.html', {'customer_messages': customer_messages})
 
-@csrf_exempt
+
 
 # Admin Girişi (Admin Login)
+
+
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.contrib.auth import login
+from .models import Customer
+from django.contrib.auth.hashers import check_password
+
+
+@csrf_exempt
 def admin_login(request):
     admin_messages = []  # Admin girişine özel mesajlar
     if request.method == "POST":
@@ -121,7 +131,9 @@ def admin_login(request):
                 admin_messages.append("Müşteri hesabıyla admin girişi yapamazsınız.")
             elif check_password(password, admin.password):
                 login(request, admin)
-                messages.success(request, "Admin girişi başarılı!")
+
+                # İlk defa giriş yapıldığını işaretle
+                request.session['admin_logged_in'] = True
                 return redirect('admin_dashboard')
             else:
                 admin_messages.append("Şifre hatalı.")
@@ -129,6 +141,9 @@ def admin_login(request):
             admin_messages.append("Böyle bir admin bulunamadı.")
 
     return render(request, 'registration/login.html', {'admin_messages': admin_messages})
+
+
+
 
 from django.contrib.auth.decorators import login_required
 
@@ -141,10 +156,17 @@ def customer_dashboard(request):
 
 from django.shortcuts import render
 from .models import Customer
-@csrf_exempt
+@login_required
 def admin_dashboard(request):
     # Superuser olmayan müşterileri filtrele
     customers = Customer.objects.filter(is_admin=False)
+
+    # Eğer admin ilk kez giriş yaptıysa, başarı mesajını göster
+    if request.session.get('admin_logged_in', False):
+        messages.success(request, "Admin girişi başarılı!")
+        # Admin'in ilk kez giriş yaptığını sıfırla
+        request.session['admin_logged_in'] = False
+
     return render(request, 'admin_dashboard.html', {'customers': customers})
 
 
@@ -192,6 +214,12 @@ def add_customer(request):
 
     return render(request, 'add_customer.html', {'form': form})
 
+from django.contrib.auth import logout
+from django.shortcuts import redirect
+
+def logout_view(request):
+    logout(request)  # Oturumu sonlandır
+    return redirect('home')  # Çıkış yaptıktan sonra anasayfaya yönlendir
 
 
 
