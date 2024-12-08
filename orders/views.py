@@ -15,8 +15,11 @@ def register(request):
         form = RegisterForm(request.POST)
         if form.is_valid():
             form.save()  # Kullanıcıyı kaydet
-            messages.success(request, "Kayıt başarılı! Giriş yapabilirsiniz.")
-            return redirect('login')  # Giriş sayfasına yönlendir
+            # Kayıt başarılı mesajı
+            messages.success(request, 'Kayıt başarılı! Giriş yapabilirsiniz.')
+
+            # Kullanıcıyı home sayfasına yönlendir
+            return redirect('home')
         else:
             messages.error(request, "Lütfen tüm alanları doğru şekilde doldurduğunuzdan emin olun.")
     else:
@@ -211,19 +214,6 @@ def logout_view(request):
     logout(request)  # Oturumu sonlandır
     return redirect('home')  # Çıkış yaptıktan sonra anasayfaya yönlendir
 
-import random
-from faker import Faker
-from django.contrib import messages
-from django.shortcuts import redirect
-from .models import Customer
-from django.utils.crypto import get_random_string
-
-# Random Müşteri Üretme Fonksiyonu
-import random
-from faker import Faker
-from django.contrib import messages
-from django.shortcuts import redirect
-from .models import Customer
 
 # Random Müşteri Üretme Fonksiyonu
 import random
@@ -274,19 +264,23 @@ def generate_random_customers(request):
     messages.success(request, f"{num_customers} yeni müşteri başarıyla oluşturuldu.")
     return redirect('admin_dashboard')
 
+
 from django.contrib import messages
 from django.shortcuts import redirect
 from .models import Customer
 
-# Tüm Kullanıcıları Silme
+# Tüm Kullanıcıları Silme View
 def delete_all_customers(request):
-    # Superuser olmayan tüm müşterileri sil
-    Customer.objects.filter(is_admin=False).delete()  # Sadece admin olmayanları sileriz
+    if request.user.is_superuser:  # Yalnızca superuser erişebilir
+        # Superuser olmayan tüm müşterileri sil
+        Customer.objects.filter(is_admin=False).delete()  # Superuser hariç tüm müşterileri sileriz
 
-    # Mesaj göster
-    messages.success(request, "Tüm müşteriler başarıyla silindi, superuser hariç.")
-    return redirect('admin_dashboard')  # Admin paneline geri dön
+        # Başarılı bir mesaj göster
+        messages.success(request, "Tüm müşteriler başarıyla silindi, superuser hariç.")
+    else:
+        # Eğer kullanıcı superuser değilse, erişim izni verilmez
+        messages.error(request, "Bu işlem için yeterli izinleriniz yok.")
 
-
+    return redirect('admin_dashboard')  # Admin dashboard'a geri yönlendir
 
 
