@@ -5,6 +5,7 @@ from django.db import models
 # Customer model (User model for register/login)
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.contrib.auth.hashers import make_password
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -24,6 +25,11 @@ class Customer(AbstractUser):
 
     USERNAME_FIELD = 'customer_name'
 
+    def save(self, *args, **kwargs):
+        # Eğer şifre düz metinse, hashleyerek kaydet
+        if not self.password.startswith('pbkdf2_'):  # Daha önce hashlenmemişse
+            self.password = make_password(self.password)
+        super().save(*args, **kwargs)
 
     def save(self, *args, **kwargs):
         if self.total_spent > 2000:
