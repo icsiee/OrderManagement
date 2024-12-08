@@ -16,6 +16,11 @@ urlpatterns = [
     path('admin_dashboard/add-customer/', views.add_customer, name='add_customer'),
     path('generate_random_customers/', views.generate_random_customers, name='generate_random_customers'),
     path('delete_all_customers/', views.delete_all_customers, name='delete_all_customers'),
+    path('admin_dashboard/add-product/', views.add_product, name='add_product'),
+    path('admin_dashboard/delete-product/<int:product_id>/', views.delete_product, name='delete_product'),
+    path('admin_dashboard/update-stock/<int:product_id>/', views.update_stock, name='update_stock'),
+
+
 
     # Tüm kullanıcıları silme URL'si
 

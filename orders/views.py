@@ -146,13 +146,19 @@ def customer_dashboard(request):
     customer_name = request.user.customer_name  # Giriş yapan müşterinin adı
     return render(request, 'customer_dashboard.html', {'customer_name': customer_name})
 
+from .models import Product
 
 from django.shortcuts import render
 from .models import Customer
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import Customer, Product
+
 @login_required
 def admin_dashboard(request):
     # Superuser olmayan müşterileri filtrele
     customers = Customer.objects.filter(is_admin=False)
+    products = Product.objects.all()  # Tüm ürünleri getir
 
     # Eğer admin ilk kez giriş yaptıysa, başarı mesajını göster
     if request.session.get('admin_logged_in', False):
@@ -160,7 +166,8 @@ def admin_dashboard(request):
         # Admin'in ilk kez giriş yaptığını sıfırla
         request.session['admin_logged_in'] = False
 
-    return render(request, 'admin_dashboard.html', {'customers': customers})
+    # Veri sözlüğü sadece bir kez kullanılarak render yapılır
+    return render(request, 'admin_dashboard.html', {'customers': customers, 'products': products})
 
 
 from django.shortcuts import render, get_object_or_404, redirect
@@ -282,5 +289,66 @@ def delete_all_customers(request):
         messages.error(request, "Bu işlem için yeterli izinleriniz yok.")
 
     return redirect('admin_dashboard')  # Admin dashboard'a geri yönlendir
+
+
+# Ürün ekleme işlemi
+@login_required
+def add_product(request):
+    if not request.user.is_admin:
+        return redirect('home')  # Eğer kullanıcı admin değilse home sayfasına yönlendir
+
+    if request.method == 'POST':
+        product_name = request.POST.get('product_name')
+        stock = int(request.POST.get('stock'))
+        price = float(request.POST.get('price'))
+
+        # Yeni ürün oluştur
+        product = Product(product_name=product_name, stock=stock, price=price)
+        product.save()
+
+        messages.success(request, f"{product_name} başarıyla eklendi.")
+        return redirect('admin_dashboard')
+
+    return render(request, 'add_product.html')
+
+# Ürün silme işlemi
+@login_required
+def delete_product(request, product_id):
+    if not request.user.is_admin:
+        return redirect('home')  # Eğer kullanıcı admin değilse home sayfasına yönlendir
+
+    try:
+        product = Product.objects.get(product_id=product_id)
+        product.delete()
+        messages.success(request, f"{product.product_name} başarıyla silindi.")
+    except Product.DoesNotExist:
+        messages.error(request, "Ürün bulunamadı.")
+
+    return redirect('admin_dashboard')
+
+
+# Stok güncelleme işlemi
+@login_required
+def update_stock(request, product_id):
+    if not request.user.is_admin:
+        return redirect('home')  # Eğer kullanıcı admin değilse home sayfasına yönlendir
+
+    try:
+        product = Product.objects.get(product_id=product_id)
+
+        if request.method == 'POST':
+            new_stock = int(request.POST.get('new_stock'))
+            product.stock = new_stock
+            product.save()
+            messages.success(request, f"{product.product_name} ürününün stoğu başarıyla güncellendi.")
+            return redirect('admin_dashboard')
+
+        return render(request, 'update_stock.html', {'product': product})
+
+    except Product.DoesNotExist:
+        messages.error(request, "Ürün bulunamadı.")
+        return redirect('admin_dashboard')
+
+
 
 
