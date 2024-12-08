@@ -71,18 +71,8 @@ def logout_view(request):
     return redirect('home')
 
 
-
-
-from django.shortcuts import render, redirect
-from django.contrib.auth import login, logout
-from django.contrib import messages
-from .models import Customer
-from django.contrib.auth.hashers import check_password
-
-
 @csrf_exempt
 
-# Kullanıcı Girişi (Customer Login)
 def customer_login(request):
     customer_messages = []  # Müşteri girişine özel mesajlar
     if request.method == "POST":
@@ -97,7 +87,7 @@ def customer_login(request):
             elif check_password(password, customer.password):
                 login(request, customer)
                 messages.success(request, "Müşteri girişi başarılı!")
-                return redirect('customer_dashboard')
+                return redirect('customer_dashboard')  # Başarıyla giriş yaptıktan sonra customer_dashboard sayfasına yönlendir
             else:
                 customer_messages.append("Şifre hatalı.")
         except Customer.DoesNotExist:
