@@ -274,6 +274,18 @@ def generate_random_customers(request):
     messages.success(request, f"{num_customers} yeni müşteri başarıyla oluşturuldu.")
     return redirect('admin_dashboard')
 
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Customer
+
+# Tüm Kullanıcıları Silme
+def delete_all_customers(request):
+    # Superuser olmayan tüm müşterileri sil
+    Customer.objects.filter(is_admin=False).delete()  # Sadece admin olmayanları sileriz
+
+    # Mesaj göster
+    messages.success(request, "Tüm müşteriler başarıyla silindi, superuser hariç.")
+    return redirect('admin_dashboard')  # Admin paneline geri dön
 
 
 
