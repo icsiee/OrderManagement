@@ -15,6 +15,7 @@ urlpatterns = [
     path('edit_customer/<int:customer_id>/', views.edit_customer, name='edit_customer'),  # Düzenleme için URL
     path('delete_customer/<int:customer_id>/', views.delete_customer, name='delete_customer'),  # Silme URL'si
     path('admin_dashboard/add-customer/', views.add_customer, name='add_customer'),
+    path('generate_random_customers/', views.generate_random_customers, name='generate_random_customers'),
 
     # Diğer URL desenleri...
 

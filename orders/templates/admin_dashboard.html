@@ -22,7 +22,8 @@
     <div class="container mt-5">
         <h1>Admin Paneline Hoş Geldiniz!</h1>
         <a href="{% url 'logout' %}" class="btn btn-danger mb-4">Çıkış Yap</a>
-<a href="{% url 'add_customer' %}" class="btn btn-success mb-4">Yeni Müşteri Ekle</a>
+        <a href="{% url 'add_customer' %}" class="btn btn-success mb-4">Yeni Müşteri Ekle</a>
+        <a href="{% url 'generate_random_customers' %}" class="btn btn-primary mb-4">Random Kullanıcı Üret</a>
 
         <h2>Müşteri Listesi</h2>
         <table class="table table-striped">
@@ -32,6 +33,7 @@
                     <th>Kullanıcı Adı</th>
                     <th>Bütçe</th>
                     <th>Toplam Harcama</th>
+                    <th>Statü</th>
                     <th>İşlemler</th>
                 </tr>
             </thead>
@@ -42,6 +44,7 @@
                         <td>{{ customer.customer_name }}</td>
                         <td>{{ customer.budget }} TL</td>
                         <td>{{ customer.total_spent }} TL</td>
+                        <td>{{ customer.customer_type }}</td>
                         <td>
                             <!-- Örneğin, düzenleme veya silme butonları eklenebilir -->
                             <a href="{% url 'edit_customer' customer.id %}" class="btn btn-warning btn-sm">Düzenle</a>
@@ -50,7 +53,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center">Hiç müşteri bulunamadı.</td>
+                        <td colspan="6" class="text-center">Hiç müşteri bulunamadı.</td>
                     </tr>
                 {% endfor %}
             </tbody>

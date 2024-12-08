@@ -211,5 +211,70 @@ def logout_view(request):
     logout(request)  # Oturumu sonlandır
     return redirect('home')  # Çıkış yaptıktan sonra anasayfaya yönlendir
 
+import random
+from faker import Faker
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Customer
+from django.utils.crypto import get_random_string
+
+# Random Müşteri Üretme Fonksiyonu
+import random
+from faker import Faker
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Customer
+
+# Random Müşteri Üretme Fonksiyonu
+import random
+from faker import Faker
+from django.contrib.auth.hashers import make_password  # make_password fonksiyonunu ekledik
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Customer
+
+# Random Müşteri Üretme Fonksiyonu
+def generate_random_customers(request):
+    fake = Faker()
+    num_customers = random.randint(5, 10)  # 5-10 arasında rastgele müşteri sayısı
+    new_customers = []
+
+    # Premium kullanıcıları rastgele seçmek için bu listeyi oluşturuyoruz
+    premium_count = 0
+
+    for _ in range(num_customers):
+        customer_name = fake.user_name()
+        budget = random.uniform(500, 3000)  # 500 ile 3000 arasında rastgele bütçe
+        total_spent = 0  # Toplam harcama her zaman 0 olacak
+
+        # Premium kullanıcıları rastgele seçiyoruz, en az 2 tane olmalı
+        if premium_count < 2 and random.choice([True, False]):
+            customer_type = 'Premium'
+            premium_count += 1
+        else:
+            customer_type = 'Standard'
+
+        # Şifreyi hashle
+        hashed_password = make_password('1')  # Şifreyi hashliyoruz
+
+        # Müşteriyi oluştur
+        customer = Customer(
+            customer_name=customer_name,
+            password=hashed_password,  # Hashlenmiş şifreyi kaydediyoruz
+            budget=round(budget, 2),
+            total_spent=total_spent,  # Toplam harcama 0
+            customer_type=customer_type
+        )
+        new_customers.append(customer)
+
+    # Müşterileri veritabanına kaydet
+    Customer.objects.bulk_create(new_customers)
+
+    # Mesaj gönder
+    messages.success(request, f"{num_customers} yeni müşteri başarıyla oluşturuldu.")
+    return redirect('admin_dashboard')
+
+
+
 
 
