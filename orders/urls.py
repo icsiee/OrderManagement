@@ -1,5 +1,7 @@
 from django.urls import path
 from . import views
+from django.contrib import admin
+
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -9,4 +11,11 @@ urlpatterns = [
     path('dashboard/customer/', views.customer_dashboard, name='customer_dashboard'),
     path('dashboard/admin/', views.admin_dashboard, name='admin_dashboard'),
     path('logout/', views.logout_view, name='logout'),
+    path('admin_dashboard/', views.admin_dashboard, name='admin_dashboard'),
+    path('edit_customer/<int:customer_id>/', views.edit_customer, name='edit_customer'),  # Düzenleme için URL
+    path('delete_customer/<int:customer_id>/', views.delete_customer, name='delete_customer'),  # Silme URL'si
+    path('admin_dashboard/add-customer/', views.add_customer, name='add_customer'),
+
+    # Diğer URL desenleri...
+
 ]

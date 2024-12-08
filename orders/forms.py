@@ -31,3 +31,20 @@ class RegisterForm(forms.ModelForm):
         if commit:
             customer.save()
         return customer
+
+
+from django import forms
+from .models import Customer
+
+class CustomerForm(forms.ModelForm):
+    class Meta:
+        model = Customer
+        fields = ['customer_name', 'budget']  # Düzenlenebilir alanlar
+
+
+class CustomerRegistrationForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput, label="Şifre")
+
+    class Meta:
+        model = Customer
+        fields = ['customer_name', 'password', 'budget']

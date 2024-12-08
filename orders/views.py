@@ -138,8 +138,60 @@ def customer_dashboard(request):
     customer_name = request.user.customer_name  # Giriş yapan müşterinin adı
     return render(request, 'customer_dashboard.html', {'customer_name': customer_name})
 
-@csrf_exempt
 
+from django.shortcuts import render
+from .models import Customer
+@csrf_exempt
 def admin_dashboard(request):
-    return render(request, 'admin_dashboard.html')
+    # Superuser olmayan müşterileri filtrele
+    customers = Customer.objects.filter(is_admin=False)
+    return render(request, 'admin_dashboard.html', {'customers': customers})
+
+
+from django.shortcuts import render, get_object_or_404, redirect
+from .models import Customer
+from .forms import CustomerForm
+
+
+def edit_customer(request, customer_id):
+    customer = get_object_or_404(Customer, id=customer_id)  # İlgili müşteriyi al
+    if request.method == "POST":
+        form = CustomerForm(request.POST, instance=customer)
+        if form.is_valid():
+            form.save()
+            return redirect('admin_dashboard')  # Düzenleme sonrası admin sayfasına yönlendir
+    else:
+        form = CustomerForm(instance=customer)  # Mevcut müşteri verilerini forma ekle
+
+    return render(request, 'edit_customer.html', {'form': form})
+
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from .models import Customer
+
+def delete_customer(request, customer_id):
+    customer = get_object_or_404(Customer, id=customer_id)
+    if not customer.is_admin:  # Admin kullanıcıların silinmesini engelle
+        customer.delete()
+        messages.success(request, "Müşteri başarıyla silindi.")
+    else:
+        messages.error(request, "Admin kullanıcıyı silemezsiniz.")
+    return redirect('admin_dashboard')  # Admin paneline geri dön
+
+from .forms import CustomerRegistrationForm
+
+def add_customer(request):
+    if request.method == 'POST':
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Yeni müşteri başarıyla eklendi.")
+            return redirect('admin_dashboard')  # Admin paneline geri dön
+    else:
+        form = CustomerRegistrationForm()
+
+    return render(request, 'add_customer.html', {'form': form})
+
+
+
 
