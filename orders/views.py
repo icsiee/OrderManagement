@@ -309,24 +309,46 @@ def delete_all_customers(request):
 
 
 # Ürün ekleme işlemi
-@login_required
-def add_product(request):
-    if not request.user.is_admin:
-        return redirect('home')  # Eğer kullanıcı admin değilse home sayfasına yönlendir
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Product
 
+from django.shortcuts import redirect
+from django.contrib import messages
+from .models import Product
+
+def add_product(request):
     if request.method == 'POST':
         product_name = request.POST.get('product_name')
-        stock = int(request.POST.get('stock'))
-        price = float(request.POST.get('price'))
+        stock = request.POST.get('stock')
+        price = request.POST.get('price')
+        image = request.FILES.get('image')  # Görsel yükleniyor
 
-        # Yeni ürün oluştur
-        product = Product(product_name=product_name, stock=stock, price=price)
+        try:
+            stock = int(stock)
+            price = float(price)
+        except ValueError:
+            messages.error(request, "Stok ve fiyat alanları geçerli sayılar olmalıdır.")
+            return redirect('add_product')
+
+        if stock < 0:
+            messages.error(request, "Stok miktarı sıfırdan küçük olamaz.")
+            return redirect('add_product')
+
+        # image_url yerine 'image' alanını kullanın
+        product = Product(
+            product_name=product_name,
+            stock=stock,
+            price=price,
+            image=image,  # image alanını kullanın
+        )
         product.save()
-
-        messages.success(request, f"{product_name} başarıyla eklendi.")
+        messages.success(request, "Ürün başarıyla eklendi.")
         return redirect('admin_dashboard')
 
-    return render(request, 'add_product.html')
+    return redirect('admin_dashboard')
+
+
 
 # Ürün silme işlemi
 @login_required

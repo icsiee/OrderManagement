@@ -44,15 +44,22 @@ class Customer(AbstractUser):
 
 # Product model
 # Product model
+from django.core.exceptions import ValidationError
+from django.db import models
+
 class Product(models.Model):
     product_id = models.AutoField(primary_key=True)  # Auto-generated unique ProductID
     product_name = models.CharField(max_length=100)  # ProductName
     stock = models.IntegerField()  # Available Stock
     price = models.DecimalField(max_digits=10, decimal_places=2)  # Product Price
-    image_url = models.URLField(null=True, blank=True)  # Optional image URL, null and blank allowed
+    image = models.ImageField(upload_to='product_images/', null=True, blank=True)  # Optional image
 
     def save(self, *args, **kwargs):
-        # Stok negatif olamaz
+        try:
+            self.stock = int(self.stock)  # Stok alanını int'e dönüştür
+        except ValueError:
+            raise ValidationError("Stok miktarı geçerli bir sayı olmalıdır.")
+
         if self.stock < 0:
             raise ValidationError("Stok miktarı sıfırdan küçük olamaz.")
         super().save(*args, **kwargs)
