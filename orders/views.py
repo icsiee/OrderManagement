@@ -411,7 +411,11 @@ from django.contrib import messages
 from .models import Product, Cart, CartItem
 
 
-# Sepete ürün ekleme işlemi
+from django.shortcuts import redirect
+from django.http import HttpResponse
+from .models import Product, Cart, CartItem
+from django.contrib.auth.decorators import login_required
+
 @csrf_exempt
 @login_required
 def add_to_cart(request):
@@ -445,9 +449,6 @@ def add_to_cart(request):
         cart_item.quantity = min(cart_item.quantity, 5)
 
         # Gerekli alanları doldur
-        cart_item.price = product.price  # Ürünün fiyatını ata
-        cart_item.product_name = product.product_name  # Ürünün adını ata
-        cart_item.product_image = product.image_url  # Ürün resmini ata
         cart_item.save()  # Veritabanına kaydet
 
         return redirect('view_cart')
@@ -455,18 +456,16 @@ def add_to_cart(request):
 
 
 
-# Sepeti görüntüleme
+from django.shortcuts import render
+from .models import Cart, CartItem
+
 @login_required
 def view_cart(request):
     try:
-        cart = Cart.objects.get(customer=request.user, is_active=True)  # Aktif sepeti al
+        cart = Cart.objects.get(customer=request.user, is_active=True)
+        cart_items = CartItem.objects.filter(cart=cart)
     except Cart.DoesNotExist:
-        cart = None
+        cart_items = []
 
-    # Sepetindeki ürünleri al
-    cart_items = CartItem.objects.filter(cart=cart) if cart else []
-    total_price = sum([item.price * item.quantity for item in cart_items])
-
-    return render(request, 'view_cart.html', {'cart_items': cart_items, 'total_price': total_price})
-
+    return render(request, 'view_cart.html', {'cart_items': cart_items})
 

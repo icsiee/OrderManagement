@@ -38,7 +38,11 @@
             {% for product in products %}
             <div class="col-md-4 mb-4">
                 <div class="card">
-                    <img src="{{ product.image_url }}" class="card-img-top" alt="{{ product.product_name }}">
+                    {% if product.image %}
+                    <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.product_name }}">
+                    {% else %}
+                    <img src="https://via.placeholder.com/150" class="card-img-top" alt="No image">
+                    {% endif %}
                     <div class="card-body">
                         <h5 class="card-title">{{ product.product_name }}</h5>
                         <p class="card-text">Stok: {{ product.stock }} | Fiyat: {{ product.price }} TRY</p>

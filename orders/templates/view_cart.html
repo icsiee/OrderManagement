@@ -1,0 +1,21 @@
+<!-- templates/your_app/view_cart.html -->
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Sepetim</title>
+</head>
+<body>
+    <h1>Sepetiniz</h1>
+
+    {% if cart_items %}
+        <ul>
+            {% for item in cart_items %}
+                <li>{{ item.product_name }} - {{ item.quantity }} adet - {{ item.price }} TRY</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Sepetiniz boş.</p>
+    {% endif %}
+</body>
+</html>

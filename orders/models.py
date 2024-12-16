@@ -71,6 +71,7 @@ class Product(models.Model):
 
 from django.db import models
 
+# Cart model
 class Cart(models.Model):
     customer = models.OneToOneField(Customer, on_delete=models.CASCADE)  # Müşteriye bağlı bir sepet
     is_active = models.BooleanField(default=True)  # Sepetin aktif olup olmadığı
@@ -79,19 +80,27 @@ class Cart(models.Model):
     def __str__(self):
         return f"Cart for {self.customer.customer_name}"
 
-
-# Sepet Ürün Modeli (CartItem)
+# CartItem model
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE)  # Sepet ile ilişki
     product = models.ForeignKey(Product, on_delete=models.CASCADE)  # Ürün ile ilişki
     quantity = models.PositiveIntegerField(default=1)  # Sepetteki ürün miktarı
-    price = models.DecimalField(max_digits=10, decimal_places=2, null=False)  # NULL izin verilmez
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # Fiyat alanı, ürün fiyatından alınacak
     product_name = models.CharField(max_length=255)  # Ürün adı
-    product_image = models.URLField()  # Ürün resmi
+    product_image = models.URLField()  # Ürün görseli URL'si
+
+    def save(self, *args, **kwargs):
+        # Fiyat, ürünün fiyatından alınıyor
+        if not self.price:
+            self.price = self.product.price
+        if not self.product_name:
+            self.product_name = self.product.product_name
+        if not self.product_image and self.product.image:
+            self.product_image = self.product.image.url  # Görsel URL'sini al
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.product_name} - {self.quantity}"
-
 
 
 # Order model
