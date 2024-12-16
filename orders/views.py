@@ -416,6 +416,30 @@ from django.http import HttpResponse
 from .models import Product, Cart, CartItem
 from django.contrib.auth.decorators import login_required
 
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from .models import Product, Cart, CartItem
+
+# Sepete ürün eklemek için view fonksiyonu
+from django.shortcuts import redirect
+from django.http import HttpResponse
+from .models import Product, Cart, CartItem
+from django.contrib.auth.decorators import login_required
+
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.contrib import messages
+from .models import Product, Cart, CartItem
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
+from django.contrib import messages
+from .models import Product, Cart, CartItem
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+
 @csrf_exempt
 @login_required
 def add_to_cart(request):
@@ -439,8 +463,13 @@ def add_to_cart(request):
         cart_item, item_created = CartItem.objects.get_or_create(cart=cart, product=product)
 
         if not item_created:
-            # Mevcut miktarı artır
-            cart_item.quantity += int(quantity)
+            # Mevcut miktarı artırmadan önce, toplam miktarın 5'i geçmediğini kontrol et
+            new_quantity = cart_item.quantity + int(quantity)
+            if new_quantity > 5:
+                # Hata mesajı ekle ve sepete eklemeyi yapma
+                messages.error(request, f"{product.product_name} için en fazla 5 adet sipariş verebilirsiniz.")
+                return redirect('customer_dashboard')
+            cart_item.quantity = new_quantity
         else:
             # Yeni miktarı belirle
             cart_item.quantity = int(quantity)
@@ -451,13 +480,12 @@ def add_to_cart(request):
         # Gerekli alanları doldur
         cart_item.save()  # Veritabanına kaydet
 
-        return redirect('view_cart')
+        # Başarı mesajı
+        messages.success(request, f"{product.product_name} başarıyla sepete eklendi.")
+
+        return redirect('customer_dashboard')  # Sepet sayfasına yönlendir
 
 
-
-
-from django.shortcuts import render
-from .models import Cart, CartItem
 
 @login_required
 def view_cart(request):
@@ -469,3 +497,50 @@ def view_cart(request):
 
     return render(request, 'view_cart.html', {'cart_items': cart_items})
 
+from django.shortcuts import get_object_or_404, redirect
+from .models import CartItem
+
+# Sepet öğesi miktarını güncelleme
+from django.shortcuts import get_object_or_404, redirect
+from .models import CartItem
+from django.contrib.auth.decorators import login_required
+
+# Sepet öğesi miktarını güncelleme
+@login_required
+def update_cart_item(request, item_id):
+    if request.method == 'POST':
+        cart_item = get_object_or_404(CartItem, id=item_id, cart__customer=request.user, cart__is_active=True)
+        new_quantity = int(request.POST.get('quantity', 1))
+
+        # Maksimum 5 ürün limiti
+        cart_item.quantity = min(new_quantity, 5)
+        cart_item.save()
+
+        return redirect('view_cart')
+
+# Sepet öğesini silme
+@login_required
+def remove_cart_item(request, item_id):
+    cart_item = get_object_or_404(CartItem, id=item_id, cart__customer=request.user, cart__is_active=True)
+    cart_item.delete()
+
+    return redirect('view_cart')
+
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from .models import Cart, CartItem
+
+@login_required
+def checkout(request):
+    try:
+        # Aktif sepeti al
+        cart = Cart.objects.get(customer=request.user, is_active=True)
+        cart_items = CartItem.objects.filter(cart=cart)
+    except Cart.DoesNotExist:
+        cart_items = []
+
+    # Sepet boşsa, checkout'a gitmeyi engelle
+    if not cart_items:
+        return redirect('view_cart')  # Sepet boşsa, sepete yönlendir
+
+    return render(request, 'checkout.html', {'cart_items': cart_items})

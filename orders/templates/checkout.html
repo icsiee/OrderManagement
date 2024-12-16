@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Sepetinizin Özeti</h1>
+        {% if cart_items %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Ürün Adı</th>
+                        <th>Fiyat</th>
+                        <th>Miktar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cart_items %}
+                        <tr>
+                            <td>{{ item.product_name }}</td>
+                            <td>{{ item.price }} TRY</td>
+                            <td>{{ item.quantity }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <a href="#" class="btn btn-primary">Siparişi Onayla</a>
+        {% else %}
+            <p>Sepetinizde ürün bulunmamaktadır. Lütfen sepetinizi doldurun.</p>
+        {% endif %}
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

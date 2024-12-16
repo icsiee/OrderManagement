@@ -7,6 +7,9 @@
     <title>Müşteri Paneli</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap JS ve jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
 </head>
 
 <body>
@@ -48,16 +51,28 @@
                         <p class="card-text">Stok: {{ product.stock }} | Fiyat: {{ product.price }} TRY</p>
 
                         <!-- Adet Seçimi ve Sepete Ekleme -->
-                       <form method="POST" action="{% url 'add_to_cart' %}">
-    {% csrf_token %}
-    <input type="hidden" name="product_id" value="{{ product.product_id }}">
-    <div class="mb-3">
-        <label for="quantity{{ product.product_id }}" class="form-label">Adet Seçin (Max 5)</label>
-        <input type="number" class="form-control" id="quantity{{ product.product_id }}" name="quantity" min="1" max="5" required>
-    </div>
-    <button type="submit" class="btn btn-primary">Sepete Ekle</button>
-</form>
+                        <form method="POST" action="{% url 'add_to_cart' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="product_id" value="{{ product.product_id }}">
+                            <div class="mb-3">
+                                <label for="quantity{{ product.product_id }}" class="form-label">Adet Seçin (Max 5)</label>
+                                <input type="number" class="form-control" id="quantity{{ product.product_id }}" name="quantity" min="1" max="5" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Sepete Ekle</button>
 
+                            <!-- Hata Mesajı (Sepette zaten var ve fazla miktar eklenirse) -->
+                            {% if messages %}
+                            <div class="mt-2">
+                                {% for message in messages %}
+                                {% if message == "Bir üründen en fazla 5 adet sipariş verebilirsiniz." %}
+                                <div class="alert alert-danger" role="alert">
+                                    {{ message }}
+                                </div>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </form>
                     </div>
                 </div>
             </div>

@@ -21,7 +21,12 @@ urlpatterns = [
     path('admin_dashboard/update-stock/<int:product_id>/', views.update_stock, name='update_stock'),
     path('add_to_cart/', views.add_to_cart, name='add_to_cart'),
     path('view_cart/', views.view_cart, name='view_cart'),
+    # Adet güncelleme
+    path('update_cart_item/<int:item_id>/', views.update_cart_item, name='update_cart_item'),
+    path('checkout/', views.checkout, name='checkout'),
 
+    # Sepet öğesini silme
+    path('remove_cart_item/<int:item_id>/', views.remove_cart_item, name='remove_cart_item'),
     # Tüm kullanıcıları silme URL'si
 
     # Diğer URL desenleri...
