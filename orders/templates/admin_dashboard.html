@@ -84,8 +84,14 @@
                     <td>{{ product.stock }}</td>
                     <td>{{ product.price }} TL</td>
                     <td>
-                        <a href="{% url 'update_stock' product_id=product.product_id %}" class="btn btn-warning btn-sm">Stok Güncelle</a>
-                        <a href="{% url 'delete_product' product_id=product.product_id %}" class="btn btn-danger btn-sm" onclick="return confirm('Bu ürünü silmek istediğinizden emin misiniz?')">Sil</a>
+ <!-- Form buraya eklendi -->
+                <form method="POST" action="{% url 'update_stock' product_id=product.product_id %}">
+                    {% csrf_token %}
+                    <div class="input-group">
+                        <input type="number" class="form-control" name="new_stock" placeholder="Yeni Stok" required>
+                        <button type="submit" class="btn btn-primary btn-sm">Stok Güncelle</button>
+                    </div>
+                </form>                        <a href="{% url 'delete_product' product_id=product.product_id %}" class="btn btn-danger btn-sm" onclick="return confirm('Bu ürünü silmek istediğinizden emin misiniz?')">Sil</a>
                     </td>
                 </tr>
                 {% empty %}

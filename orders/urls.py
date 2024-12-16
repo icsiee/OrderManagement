@@ -19,8 +19,8 @@ urlpatterns = [
     path('admin_dashboard/add-product/', views.add_product, name='add_product'),
     path('admin_dashboard/delete-product/<int:product_id>/', views.delete_product, name='delete_product'),
     path('admin_dashboard/update-stock/<int:product_id>/', views.update_stock, name='update_stock'),
-
-
+    path('add_to_cart/', views.add_to_cart, name='add_to_cart'),
+    path('view_cart/', views.view_cart, name='view_cart'),
 
     # Tüm kullanıcıları silme URL'si
 

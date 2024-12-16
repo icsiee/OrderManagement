@@ -43,14 +43,48 @@ class Customer(AbstractUser):
 
 
 # Product model
+# Product model
 class Product(models.Model):
     product_id = models.AutoField(primary_key=True)  # Auto-generated unique ProductID
     product_name = models.CharField(max_length=100)  # ProductName
     stock = models.IntegerField()  # Available Stock
     price = models.DecimalField(max_digits=10, decimal_places=2)  # Product Price
+    image_url = models.URLField(null=True, blank=True)  # Optional image URL, null and blank allowed
+
+    def save(self, *args, **kwargs):
+        # Stok negatif olamaz
+        if self.stock < 0:
+            raise ValidationError("Stok miktarı sıfırdan küçük olamaz.")
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.product_name
+
+
+
+from django.db import models
+
+class Cart(models.Model):
+    customer = models.OneToOneField(Customer, on_delete=models.CASCADE)  # Müşteriye bağlı bir sepet
+    is_active = models.BooleanField(default=True)  # Sepetin aktif olup olmadığı
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Cart for {self.customer.customer_name}"
+
+
+# Sepet Ürün Modeli (CartItem)
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)  # Sepet ile ilişki
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)  # Ürün ile ilişki
+    quantity = models.PositiveIntegerField(default=1)  # Sepetteki ürün miktarı
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=False)  # NULL izin verilmez
+    product_name = models.CharField(max_length=255)  # Ürün adı
+    product_image = models.URLField()  # Ürün resmi
+
+    def __str__(self):
+        return f"{self.product_name} - {self.quantity}"
+
 
 
 # Order model
@@ -87,70 +121,5 @@ class Log(models.Model):
 
     def __str__(self):
         return f"Log {self.log_id} for Order {self.order.order_id}"
-
-
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.contrib.auth import authenticate, login
-from django.contrib.auth.hashers import check_password
-from .models import Customer
-
-# Customer login view
-def customer_login(request):
-    if request.method == "POST":
-        customer_name = request.POST.get('customer_name')
-        password = request.POST.get('password')
-
-        try:
-            # Check if the customer exists and is not an admin
-            customer = Customer.objects.get(customer_name=customer_name)
-
-            if customer.is_admin:
-                messages.error(request, "Admin girişine izniniz yok.")
-                return redirect('customer_login')
-
-            # Check if the password is correct
-            if check_password(password, customer.password):
-                # Log the user in
-                login(request, customer)
-                return redirect('home')  # Redirect to the homepage or dashboard
-            else:
-                messages.error(request, "Şifre hatalı.")
-                return redirect('customer_login')
-
-        except Customer.DoesNotExist:
-            messages.error(request, "Kullanıcı adı bulunamadı.")
-            return redirect('customer_login')
-
-    return render(request, 'customer_login.html')
-
-# Admin login view
-def admin_login(request):
-    if request.method == "POST":
-        customer_name = request.POST.get('customer_name')
-        password = request.POST.get('password')
-
-        try:
-            # Check if the user exists and is an admin
-            customer = Customer.objects.get(customer_name=customer_name)
-
-            if not customer.is_admin:
-                messages.error(request, "Customer girişine izniniz yok.")
-                return redirect('admin_login')
-
-            # Check if the password is correct
-            if check_password(password, customer.password):
-                # Log the user in
-                login(request, customer)
-                return redirect('admin_dashboard')  # Redirect to the admin dashboard
-            else:
-                messages.error(request, "Şifre hatalı.")
-                return redirect('admin_login')
-
-        except Customer.DoesNotExist:
-            messages.error(request, "Kullanıcı adı bulunamadı.")
-            return redirect('admin_login')
-
-    return render(request, 'admin_login.html')
 
 

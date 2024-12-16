@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from .forms import RegisterForm
@@ -140,11 +141,27 @@ def admin_login(request):
 
 from django.contrib.auth.decorators import login_required
 
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from .models import Product, Cart
+
 @csrf_exempt
 @login_required
 def customer_dashboard(request):
-    customer_name = request.user.customer_name  # Giriş yapan müşterinin adı
-    return render(request, 'customer_dashboard.html', {'customer_name': customer_name})
+    customer_name = request.user.customer_name  # Giriş yapan kullanıcının adı (Customer modelinden alıyoruz)
+    products = Product.objects.all()  # Stoktaki tüm ürünleri alıyoruz
+
+    # Sepet kontrolü ve sepet bilgilerini kullanıcıya sağlama
+    customer = request.user  # Kullanıcıyı doğrudan alıyoruz
+    cart, created = Cart.objects.get_or_create(customer=customer, is_active=True)  # Kullanıcı için aktif sepeti al
+
+    return render(request, 'customer_dashboard.html', {
+        'customer_name': customer_name,
+        'products': products,  # Ürünler listelenecek
+        'cart': cart,  # Kullanıcının aktif sepeti
+    })
+
+
 
 from .models import Product
 
@@ -328,27 +345,106 @@ def delete_product(request, product_id):
 
 
 # Stok güncelleme işlemi
+from django.shortcuts import get_object_or_404, redirect
+from django.http import HttpResponse
+from django.contrib import messages
+
+@csrf_exempt
 @login_required
 def update_stock(request, product_id):
-    if not request.user.is_admin:
-        return redirect('home')  # Eğer kullanıcı admin değilse home sayfasına yönlendir
+    if request.method == 'POST':
+        # Formdan gelen stok bilgisini al
+        new_stock = request.POST.get('new_stock')
 
-    try:
-        product = Product.objects.get(product_id=product_id)
-
-        if request.method == 'POST':
-            new_stock = int(request.POST.get('new_stock'))
-            product.stock = new_stock
-            product.save()
-            messages.success(request, f"{product.product_name} ürününün stoğu başarıyla güncellendi.")
+        if not new_stock:
+            # Boş veri kontrolü
+            messages.error(request, "Yeni stok değeri boş olamaz.")
             return redirect('admin_dashboard')
 
-        return render(request, 'update_stock.html', {'product': product})
+        try:
+            # Yeni stok değerini tam sayı olarak dönüştür
+            new_stock = int(new_stock)
 
-    except Product.DoesNotExist:
-        messages.error(request, "Ürün bulunamadı.")
+            # Ürünü al
+            product = get_object_or_404(Product, product_id=product_id)
+
+            # Stok değerini güncelle
+            product.stock = new_stock
+            product.save()
+
+            # Başarılı mesajı ekle
+            messages.success(request, f"{product.product_name} stok güncellendi!")
+        except ValueError:
+            # Sayıya dönüştürülemezse hata mesajı
+            messages.error(request, "Geçerli bir stok değeri giriniz.")
+        except Product.DoesNotExist:
+            messages.error(request, "Ürün bulunamadı.")
         return redirect('admin_dashboard')
+    else:
+        return HttpResponse("Bu işlem sadece POST yöntemiyle yapılabilir.", status=405)
 
 
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Product, Cart, CartItem
+
+
+# Sepete ürün ekleme işlemi
+@csrf_exempt
+@login_required
+def add_to_cart(request):
+    if request.method == 'POST':
+        product_id = request.POST.get('product_id')
+        quantity = request.POST.get('quantity')
+
+        # Girdi doğrulaması
+        if not product_id or not quantity:
+            return HttpResponse("Eksik veri gönderildi.", status=400)
+
+        try:
+            product = Product.objects.get(product_id=product_id)
+        except Product.DoesNotExist:
+            return HttpResponse("Ürün bulunamadı.", status=404)
+
+        # Sepeti oluştur veya aktif sepeti al
+        cart, created = Cart.objects.get_or_create(customer=request.user, is_active=True)
+
+        # Sepet öğesini kontrol et veya oluştur
+        cart_item, item_created = CartItem.objects.get_or_create(cart=cart, product=product)
+
+        if not item_created:
+            # Mevcut miktarı artır
+            cart_item.quantity += int(quantity)
+        else:
+            # Yeni miktarı belirle
+            cart_item.quantity = int(quantity)
+
+        # Maksimum 5 ürün limiti
+        cart_item.quantity = min(cart_item.quantity, 5)
+
+        # Gerekli alanları doldur
+        cart_item.price = product.price  # Ürünün fiyatını ata
+        cart_item.product_name = product.product_name  # Ürünün adını ata
+        cart_item.product_image = product.image_url  # Ürün resmini ata
+        cart_item.save()  # Veritabanına kaydet
+
+        return redirect('view_cart')
+
+
+
+
+# Sepeti görüntüleme
+@login_required
+def view_cart(request):
+    try:
+        cart = Cart.objects.get(customer=request.user, is_active=True)  # Aktif sepeti al
+    except Cart.DoesNotExist:
+        cart = None
+
+    # Sepetindeki ürünleri al
+    cart_items = CartItem.objects.filter(cart=cart) if cart else []
+    total_price = sum([item.price * item.quantity for item in cart_items])
+
+    return render(request, 'view_cart.html', {'cart_items': cart_items, 'total_price': total_price})
 
 
