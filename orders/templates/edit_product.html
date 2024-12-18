@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>Ürün Güncelle</h2>
+
+  <form method="POST" action="{% url 'edit_product' product_id=product.product_id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="mb-3">
+          <label for="product_name" class="form-label">Ürün Adı:</label>
+          <input type="text" class="form-control" id="product_name" name="product_name" value="{{ product.product_name }}" required>
+      </div>
+
+      <div class="mb-3">
+          <label for="stock" class="form-label">Stok:</label>
+          <input type="number" class="form-control" id="stock" name="stock" value="{{ product.stock }}" required>
+      </div>
+
+      <div class="mb-3">
+          <label for="price" class="form-label">Fiyat (TL):</label>
+          <input type="number" step="0.01" class="form-control" id="price" name="price" value="{{ product.price }}" required>
+      </div>
+
+      <div class="mb-3">
+          <label for="image" class="form-label">Ürün Görseli:</label>
+          <input type="file" class="form-control" id="image" name="image">
+          {% if product.image %}
+            <p>Mevcut Görsel: <img src="{{ product.image.url }}" alt="Current Image" style="max-width: 200px; margin-top: 10px;"></p>
+          {% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary">Güncelle</button>
+  </form>
+
+  <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary" style="margin-top: 20px;">Geri Dön</a>
+{% endblock %}

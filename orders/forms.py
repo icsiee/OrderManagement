@@ -48,3 +48,12 @@ class CustomerRegistrationForm(forms.ModelForm):
     class Meta:
         model = Customer
         fields = ['customer_name', 'password', 'budget']
+
+# orders/forms.py
+from django import forms
+from .models import Product
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ['product_name', 'stock', 'price', 'image']  # Güncellenebilir alanlar

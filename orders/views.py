@@ -599,6 +599,10 @@ from django.contrib import messages
 from .models import Product
 
 
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Product
+
 def add_default_products(request):
     # Sabit ürünler
     default_products = [
@@ -610,9 +614,9 @@ def add_default_products(request):
     ]
 
     # Media klasöründeki varsayılan görselin yolu
-    default_image_path = "media/kahvaltilik_krep.jpg"
+    default_image_path = "media/product_images/kahvaltilik_krep.jpg"
 
-    # Ürünleri ekleyin
+    # Ürünleri ekleyin veya stokları güncelleyin
     for product_data in default_products:
         product, created = Product.objects.get_or_create(
             product_name=product_data["product_name"],
@@ -622,9 +626,69 @@ def add_default_products(request):
                 "image": default_image_path,
             },
         )
-        if not created:
-            messages.warning(request, f"{product.product_name} zaten mevcut.")
 
-    messages.success(request, "Sabit ürünler başarıyla eklendi!")
+        if created:
+            messages.success(request, f"{product.product_name} başarıyla eklendi.")
+        else:
+            # Ürün varsa, stok miktarını güncelleyin
+            if product.stock != product_data["stock"]:
+                old_stock = product.stock
+                product.stock = product_data["stock"]
+                product.save()
+                messages.info(request, f"{product.product_name} stok miktarı {old_stock} → {product_data['stock']} olarak güncellendi.")
+            else:
+                messages.warning(request, f"{product.product_name} zaten mevcut ve stok miktarı güncellenmedi.")
+
+    messages.success(request, "Sabit ürünler başarıyla eklendi ve güncellendi!")
     return redirect("admin_dashboard")  # Admin dashboard'unuzun URL ismini yazın
+
+
+from django.shortcuts import redirect
+from django.contrib import messages
+from .models import Product
+
+
+def delete_all_products(request):
+    # Veritabanındaki tüm ürünleri sil
+    Product.objects.all().delete()
+
+    # Başarı mesajı
+    messages.success(request, "Tüm ürünler başarıyla silindi.")
+    return redirect("admin_dashboard")  # Admin dashboard'unuzun URL ismini yazın
+
+
+from django.shortcuts import render, get_object_or_404, redirect
+from .models import Product
+from .forms import ProductForm
+from django.contrib import messages
+
+from django.shortcuts import render, get_object_or_404, redirect
+from .models import Product
+from .forms import ProductForm
+from django.contrib import messages
+
+
+def edit_product(request, product_id):
+    product = get_object_or_404(Product, pk=product_id)
+
+    if request.method == 'POST':
+        product_name = request.POST.get('product_name')
+        stock = request.POST.get('stock')
+        price = request.POST.get('price')
+        image = request.FILES.get('image')  # Eğer görsel yüklenirse
+
+        # Ürün bilgilerini güncelle
+        product.product_name = product_name
+        product.stock = stock
+        product.price = price
+        if image:
+            product.image = image
+        product.save()
+
+        messages.success(request, f"{product.product_name} başarıyla güncellendi.")
+        return redirect('admin_dashboard')  # Admin dashboard'una yönlendirme
+
+    return render(request, 'edit_product.html', {'product': product})
+
+
 
