@@ -53,7 +53,6 @@ class Product(models.Model):
     stock = models.IntegerField()  # Available Stock
     price = models.DecimalField(max_digits=10, decimal_places=2)  # Product Price
     image = models.ImageField(upload_to='product_images/', null=True, blank=True)  # Optional image
-
     def save(self, *args, **kwargs):
         try:
             self.stock = int(self.stock)  # Stok alanını int'e dönüştür
@@ -80,6 +79,8 @@ class Cart(models.Model):
     def __str__(self):
         return f"Cart for {self.customer.customer_name}"
 
+
+
 # CartItem model
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE)  # Sepet ile ilişki
@@ -101,6 +102,7 @@ class CartItem(models.Model):
 
     def __str__(self):
         return f"{self.product_name} - {self.quantity}"
+
 
 
 # Order model
@@ -137,5 +139,4 @@ class Log(models.Model):
 
     def __str__(self):
         return f"Log {self.log_id} for Order {self.order.order_id}"
-
 

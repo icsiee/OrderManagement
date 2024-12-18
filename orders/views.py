@@ -456,6 +456,11 @@ def add_to_cart(request):
         except Product.DoesNotExist:
             return HttpResponse("Ürün bulunamadı.", status=404)
 
+        # Stoktaki miktarı kontrol et
+        if int(quantity) > product.stock:
+            messages.error(request, f"{product.product_name} için yeterli stok bulunmamaktadır.")
+            return redirect('customer_dashboard')
+
         # Sepeti oluştur veya aktif sepeti al
         cart, created = Cart.objects.get_or_create(customer=request.user, is_active=True)
 
@@ -484,6 +489,7 @@ def add_to_cart(request):
         messages.success(request, f"{product.product_name} başarıyla sepete eklendi.")
 
         return redirect('customer_dashboard')  # Sepet sayfasına yönlendir
+
 
 
 
@@ -543,4 +549,48 @@ def checkout(request):
     if not cart_items:
         return redirect('view_cart')  # Sepet boşsa, sepete yönlendir
 
-    return render(request, 'checkout.html', {'cart_items': cart_items})
+    return render(request, 'checkout.html', {'cart_items': cart_items,"cart":cart})
+
+
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Cart, CartItem
+
+def order_checkout(request):
+    if request.method == 'POST':
+        try:
+            # Kullanıcının aktif sepetini al
+            cart_id = request.POST.get('cart_id')
+            cart=Cart.objects.filter(id=cart_id).first()
+            cart_items = CartItem.objects.filter(cart_id=cart_id)
+
+            # Stok güncellemesi yap
+            for item in cart_items:
+                product = item.product
+                if product.stock >= item.quantity:
+                    product.stock -= item.quantity
+                    product.save()
+                else:
+                    messages.error(request, f"{product.product_name} stoğu yetersiz.")
+                    return redirect('checkout')  # Yetersiz stok varsa tekrar checkout sayfasına dön
+
+            # Siparişi tamamlandı olarak işaretle
+            cart.is_active = False
+            cart.save()
+
+            # Başarılı mesaj ekle
+            messages.success(request, "Sipariş onaylandı!")
+
+            # Yönlendirme yap
+            return redirect('customer_dashboard')
+        except Cart.DoesNotExist:
+            messages.error(request, "Aktif bir sepet bulunamadı.")
+            return redirect('checkout')
+        return redirect('checkout')
+    else:
+        print("ezgi")
+        # GET isteği için checkout sayfasına dön
+        return redirect('checkout')
+
+

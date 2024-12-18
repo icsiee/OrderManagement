@@ -24,7 +24,7 @@ urlpatterns = [
     # Adet güncelleme
     path('update_cart_item/<int:item_id>/', views.update_cart_item, name='update_cart_item'),
     path('checkout/', views.checkout, name='checkout'),
-
+    path('order_checkout/', views.order_checkout, name='order_checkout'),
     # Sepet öğesini silme
     path('remove_cart_item/<int:item_id>/', views.remove_cart_item, name='remove_cart_item'),
     # Tüm kullanıcıları silme URL'si
