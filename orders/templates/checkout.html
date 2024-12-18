@@ -5,13 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Checkout</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        table th, table td {
+            text-align: center; /* Metinleri ortalar */
+            white-space: nowrap; /* Satır sarmayı engeller */
+            vertical-align: middle; /* Hücrelerin ortasına hizalar */
+        }
+
+        /* Dinamik sütun genişliğini sınırlandırır */
+        .product-name {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
 </head>
 <body>
     <div class="container mt-5">
         <h1>Sepetinizin Özeti</h1>
+
+        <!-- Mesajların gösterimi -->
+        {% if messages %}
+            <div>
+                {% for message in messages %}
+                    <div class="alert alert-info">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
         {% if cart_items %}
-            <table class="table">
-                <thead>
+            <table class="table table-bordered table-striped">
+                <thead class="table-light">
                     <tr>
                         <th>Ürün Adı</th>
                         <th>Fiyat</th>
@@ -21,14 +45,20 @@
                 <tbody>
                     {% for item in cart_items %}
                         <tr>
-                            <td>{{ item.product_name }}</td>
-                            <td>{{ item.price }} TRY</td>
-                            <td>{{ item.quantity }}</td>
+                            <td class="product-name">{{ item.product.product_name }}</td> <!-- Ürün adı -->
+                            <td>{{ item.product.price }} TRY</td> <!-- Ürün fiyatı -->
+                            <td>{{ item.quantity }}</td> <!-- Ürün miktarı -->
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
-            <a href="#" class="btn btn-primary">Siparişi Onayla</a>
+
+            <!-- Siparişi Onayla Formu -->
+            <form method="POST" action="{% url 'order_checkout' %}">
+                {% csrf_token %}
+                <input type="hidden" name="cart_id" value="{{cart.id}}">
+                <button type="submit" class="btn btn-primary">Siparişi Onayla</button>
+            </form>
         {% else %}
             <p>Sepetinizde ürün bulunmamaktadır. Lütfen sepetinizi doldurun.</p>
         {% endif %}
