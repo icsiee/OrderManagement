@@ -594,3 +594,37 @@ def order_checkout(request):
         return redirect('checkout')
 
 
+from django.shortcuts import redirect
+from django.contrib import messages
+from .models import Product
+
+
+def add_default_products(request):
+    # Sabit ürünler
+    default_products = [
+        {"product_name": "Product1", "stock": 500, "price": 100},
+        {"product_name": "Product2", "stock": 10, "price": 50},
+        {"product_name": "Product3", "stock": 200, "price": 45},
+        {"product_name": "Product4", "stock": 75, "price": 75},
+        {"product_name": "Product5", "stock": 0, "price": 500},
+    ]
+
+    # Media klasöründeki varsayılan görselin yolu
+    default_image_path = "media/kahvaltilik_krep.jpg"
+
+    # Ürünleri ekleyin
+    for product_data in default_products:
+        product, created = Product.objects.get_or_create(
+            product_name=product_data["product_name"],
+            defaults={
+                "stock": product_data["stock"],
+                "price": product_data["price"],
+                "image": default_image_path,
+            },
+        )
+        if not created:
+            messages.warning(request, f"{product.product_name} zaten mevcut.")
+
+    messages.success(request, "Sabit ürünler başarıyla eklendi!")
+    return redirect("admin_dashboard")  # Admin dashboard'unuzun URL ismini yazın
+

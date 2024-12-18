@@ -28,6 +28,7 @@ urlpatterns = [
     # Sepet öğesini silme
     path('remove_cart_item/<int:item_id>/', views.remove_cart_item, name='remove_cart_item'),
     # Tüm kullanıcıları silme URL'si
+    path('add-default-products/', views.add_default_products, name='add_default_products'),
 
     # Diğer URL desenleri...
 
