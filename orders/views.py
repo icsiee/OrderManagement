@@ -157,6 +157,8 @@ def customer_dashboard(request):
 
     return render(request, 'customer_dashboard.html', {
         'customer_name': customer_name,
+        'customer_balance': customer.budget,  # Bakiye bilgisi
+
         'products': products,  # Ürünler listelenecek
         'cart': cart,  # Kullanıcının aktif sepeti
     })
