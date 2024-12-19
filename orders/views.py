@@ -138,10 +138,6 @@ def admin_login(request):
 
 
 
-
-from django.contrib.auth.decorators import login_required
-
-from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from .models import Product, Cart
 
@@ -164,14 +160,7 @@ def customer_dashboard(request):
     })
 
 
-
-from .models import Product
-
-from django.shortcuts import render
-from .models import Customer
 from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from .models import Customer, Product
 
 @login_required
 def admin_dashboard(request):
@@ -189,8 +178,6 @@ def admin_dashboard(request):
     return render(request, 'admin_dashboard.html', {'customers': customers, 'products': products})
 
 
-from django.shortcuts import render, get_object_or_404, redirect
-from .models import Customer
 from .forms import CustomerForm
 
 
@@ -264,7 +251,7 @@ def generate_random_customers(request):
         total_spent = 0  # Toplam harcama her zaman 0 olacak
 
         # Premium kullanıcıları rastgele seçiyoruz, en az 2 tane olmalı
-        if premium_count < 2 and random.choice([True, False]):
+        if premium_count < 3 and random.choice([True, False]):
             customer_type = 'Premium'
             premium_count += 1
         else:
@@ -538,61 +525,114 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from .models import Cart, CartItem
 
-@login_required
-def checkout(request):
-    try:
-        # Aktif sepeti al
-        cart = Cart.objects.get(customer=request.user, is_active=True)
-        cart_items = CartItem.objects.filter(cart=cart)
-    except Cart.DoesNotExist:
-        cart_items = []
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from datetime import datetime, timedelta
+from .models import Cart, CartItem
 
-    # Sepet boşsa, checkout'a gitmeyi engelle
-    if not cart_items:
-        return redirect('view_cart')  # Sepet boşsa, sepete yönlendir
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from datetime import datetime, timedelta
+from .models import Cart, CartItem
+import pytz  # Zaman dilimi işlemleri için
 
-    return render(request, 'checkout.html', {'cart_items': cart_items,"cart":cart})
-
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from datetime import datetime, timedelta
+from .models import Cart, CartItem
 
 
 from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from datetime import datetime, timedelta
 from .models import Cart, CartItem
 
+from datetime import datetime
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import Cart, CartItem, Order
+
+@login_required
+def checkout(request):
+    try:
+        # Kullanıcının aktif sepetini getir
+        cart = Cart.objects.get(customer=request.user, is_active=True)
+        cart_items = CartItem.objects.filter(cart=cart)
+    except Cart.DoesNotExist:
+        messages.error(request, "Aktif bir sepet bulunamadı. Sepet oluşturun.")
+        return redirect('view_cart')  # Sepet sayfasına yönlendirme
+
+    # Sepet boşsa işlem yapılamaz
+    if not cart_items:
+        messages.error(request, "Sepetinizde ürün bulunmuyor.")
+        return redirect('view_cart')
+
+    # 15 saniye kontrolü (örnek)
+    request.session['checkout_start_time'] = datetime.now().timestamp()
+    current_time = datetime.now().timestamp()
+    start_time = request.session.get('checkout_start_time', current_time)
+    if (current_time - start_time) > 15:
+        messages.error(request, "Sipariş süresi doldu. Lütfen tekrar deneyin.")
+        return redirect('view_cart')
+
+    return render(request, 'checkout.html', {'cart_items': cart_items, "cart": cart})
+
+
+from .models import Cart, CartItem
+from django.shortcuts import render, redirect
+from django.contrib import messages
+
+@login_required
 def order_checkout(request):
     if request.method == 'POST':
         try:
-            # Kullanıcının aktif sepetini al
-            cart_id = request.POST.get('cart_id')
-            cart=Cart.objects.filter(id=cart_id).first()
-            cart_items = CartItem.objects.filter(cart_id=cart_id)
+            # Kullanıcının aktif sepetini getir
+            cart = Cart.objects.get(customer=request.user, is_active=True)
+            cart_items = CartItem.objects.filter(cart=cart)
 
-            # Stok güncellemesi yap
+            if not cart_items:
+                messages.error(request, "Sepetinizde ürün bulunmuyor.")
+                return redirect('view_cart')
+
+            # Stok kontrolü ve güncellemesi
             for item in cart_items:
                 product = item.product
                 if product.stock >= item.quantity:
                     product.stock -= item.quantity
                     product.save()
                 else:
-                    messages.error(request, f"{product.product_name} stoğu yetersiz.")
-                    return redirect('checkout')  # Yetersiz stok varsa tekrar checkout sayfasına dön
+                    messages.error(request, f"{product.product_name} için yeterli stok bulunmuyor.")
+                    return redirect('checkout')
 
-            # Siparişi tamamlandı olarak işaretle
-            cart.is_active = False
+            # Sipariş oluştur ve aktif sepeti pasif yap
+            for item in cart_items:
+                Order.objects.create(
+                    customer=request.user,
+                    product=item.product,
+                    quantity=item.quantity,
+                    total_price=item.quantity * item.price,
+                )
+
+            cart.is_active = False  # Sepeti pasif yap
             cart.save()
 
-            # Başarılı mesaj ekle
-            messages.success(request, "Sipariş onaylandı!")
+            # Başarılı mesaj
+            messages.success(request, "Siparişiniz başarıyla tamamlandı!")
 
-            # Yönlendirme yap
+            # Checkout zamanı sıfırla
+            if 'checkout_start_time' in request.session:
+                del request.session['checkout_start_time']
+
             return redirect('customer_dashboard')
         except Cart.DoesNotExist:
             messages.error(request, "Aktif bir sepet bulunamadı.")
-            return redirect('checkout')
-        return redirect('checkout')
+            return redirect('view_cart')
     else:
-        print("ezgi")
-        # GET isteği için checkout sayfasına dön
         return redirect('checkout')
 
 

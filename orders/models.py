@@ -1,17 +1,9 @@
-from django.core.exceptions import ValidationError
-from django.db import models
 
-
-# Customer model (User model for register/login)
-from django.contrib.auth.models import AbstractUser
-from django.db import models
 from django.contrib.auth.hashers import make_password
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-
 class Customer(AbstractUser):
-    # username alanı yerine customer_name kullanılır
     username = None  # AbstractUser'dan gelen username'ı devre dışı bırakıyoruz
     customer_name = models.CharField(max_length=100, unique=True)
     is_admin = models.BooleanField(default=False)
@@ -29,16 +21,15 @@ class Customer(AbstractUser):
         # Eğer şifre düz metinse, hashleyerek kaydet
         if not self.password.startswith('pbkdf2_'):  # Daha önce hashlenmemişse
             self.password = make_password(self.password)
-        super().save(*args, **kwargs)
 
-    def save(self, *args, **kwargs):
+        # TotalSpent kontrolü ve customer_type güncellemesi
         if self.total_spent > 2000:
             self.customer_type = 'Premium'
+
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.customer_name
-
 
 
 
@@ -71,14 +62,52 @@ class Product(models.Model):
 from django.db import models
 
 # Cart model
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.contrib.auth import get_user_model
+
+from django.db import models
+from django.contrib.auth import get_user_model
+
+Customer = get_user_model()
+
 class Cart(models.Model):
-    customer = models.OneToOneField(Customer, on_delete=models.CASCADE)  # Müşteriye bağlı bir sepet
-    is_active = models.BooleanField(default=True)  # Sepetin aktif olup olmadığı
-    created_at = models.DateTimeField(auto_now_add=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)  # Her müşteri birden fazla sepet oluşturabilir
+    is_active = models.BooleanField(default=True)  # Sepetin aktif olup olmadığını belirler
+    created_at = models.DateTimeField(auto_now_add=True)  # Sepetin oluşturulma tarihi
+    updated_at = models.DateTimeField(auto_now=True)  # Sepetin son güncellenme tarihi
+
+    def save(self, *args, **kwargs):
+        """
+        Save işlemi sırasında yalnızca bir aktif sepet olmasını sağlar.
+        """
+        if self.is_active:
+            # Aynı müşteri için başka bir aktif sepeti pasif yap
+            Cart.objects.filter(customer=self.customer, is_active=True).exclude(id=self.id).update(is_active=False)
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Cart for {self.customer.customer_name}"
+        return f"Cart {self.id} for {self.customer.customer_name} ({'Active' if self.is_active else 'Inactive'})"
 
+    @staticmethod
+    def get_or_create_active_cart(customer):
+        """
+        Müşteri için mevcut aktif sepeti döndürür. Aktif sepet yoksa yeni bir tane oluşturur.
+        """
+        cart = Cart.objects.filter(customer=customer, is_active=True).first()
+        if not cart:
+            cart = Cart.objects.create(customer=customer, is_active=True)
+        return cart
+
+    def complete_cart(self):
+        """
+        Sepeti tamamlar ve pasif hale getirir.
+        """
+        if self.is_active:
+            self.is_active = False
+            self.save()
+        else:
+            raise ValueError("Cart is already inactive.")
 
 
 # CartItem model
@@ -126,6 +155,29 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order {self.order_id} by {self.customer.customer_name}"
+
+    def process_cart_to_order(self):
+        # Aktif sepeti bul
+        cart = Cart.objects.get(customer=self.customer, is_active=True)
+
+        # Sepetteki ürünleri al
+        cart_items = CartItem.objects.filter(cart=cart)
+
+        for cart_item in cart_items:
+            # Sipariş oluştur
+            Order.objects.create(
+                customer=self.customer,
+                product=cart_item.product,
+                quantity=cart_item.quantity,
+                total_price=cart_item.quantity * cart_item.price,
+            )
+
+        # Sepet sıfırlanıyor
+        cart.is_active = False
+        cart.save()
+
+        # Sepet içeriğini temizle
+        cart_items.delete()
 
 
 # Log model
