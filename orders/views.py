@@ -161,12 +161,17 @@ def customer_dashboard(request):
 
 
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import Customer, Product, Order
 
 @login_required
 def admin_dashboard(request):
     # Superuser olmayan müşterileri filtrele
     customers = Customer.objects.filter(is_admin=False)
     products = Product.objects.all()  # Tüm ürünleri getir
+    orders = Order.objects.all().order_by('-order_date')  # En son siparişleri sırala
 
     # Eğer admin ilk kez giriş yaptıysa, başarı mesajını göster
     if request.session.get('admin_logged_in', False):
@@ -174,8 +179,15 @@ def admin_dashboard(request):
         # Admin'in ilk kez giriş yaptığını sıfırla
         request.session['admin_logged_in'] = False
 
+
     # Veri sözlüğü sadece bir kez kullanılarak render yapılır
-    return render(request, 'admin_dashboard.html', {'customers': customers, 'products': products})
+    context = {
+        'customers': customers,
+        'products': products,
+        'orders': orders,
+    }
+
+    return render(request, 'admin_dashboard.html', context)
 
 
 from .forms import CustomerForm
@@ -277,7 +289,6 @@ def generate_random_customers(request):
     messages.success(request, f"{num_customers} yeni müşteri başarıyla oluşturuldu.")
     return redirect('admin_dashboard')
 
-
 from django.contrib import messages
 from django.shortcuts import redirect
 from .models import Customer
@@ -338,7 +349,6 @@ def add_product(request):
     return redirect('admin_dashboard')
 
 
-
 # Ürün silme işlemi
 @login_required
 def delete_product(request, product_id):
@@ -354,11 +364,6 @@ def delete_product(request, product_id):
 
     return redirect('admin_dashboard')
 
-
-# Stok güncelleme işlemi
-from django.shortcuts import get_object_or_404, redirect
-from django.http import HttpResponse
-from django.contrib import messages
 
 @csrf_exempt
 @login_required
@@ -395,37 +400,7 @@ def update_stock(request, product_id):
         return HttpResponse("Bu işlem sadece POST yöntemiyle yapılabilir.", status=405)
 
 
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from .models import Product, Cart, CartItem
-
-
-from django.shortcuts import redirect
 from django.http import HttpResponse
-from .models import Product, Cart, CartItem
-from django.contrib.auth.decorators import login_required
-
-from django.contrib import messages
-from django.shortcuts import render, redirect
-from .models import Product, Cart, CartItem
-
-# Sepete ürün eklemek için view fonksiyonu
-from django.shortcuts import redirect
-from django.http import HttpResponse
-from .models import Product, Cart, CartItem
-from django.contrib.auth.decorators import login_required
-
-from django.shortcuts import render, redirect
-from django.http import HttpResponse
-from django.contrib import messages
-from .models import Product, Cart, CartItem
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
-
-from django.shortcuts import render, redirect
-from django.http import HttpResponse
-from django.contrib import messages
-from .models import Product, Cart, CartItem
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 
@@ -492,12 +467,7 @@ def view_cart(request):
 
     return render(request, 'view_cart.html', {'cart_items': cart_items})
 
-from django.shortcuts import get_object_or_404, redirect
-from .models import CartItem
 
-# Sepet öğesi miktarını güncelleme
-from django.shortcuts import get_object_or_404, redirect
-from .models import CartItem
 from django.contrib.auth.decorators import login_required
 
 # Sepet öğesi miktarını güncelleme
@@ -521,41 +491,10 @@ def remove_cart_item(request, item_id):
 
     return redirect('view_cart')
 
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from .models import Cart, CartItem
-
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from datetime import datetime, timedelta
-from .models import Cart, CartItem
-
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from datetime import datetime, timedelta
-from .models import Cart, CartItem
-import pytz  # Zaman dilimi işlemleri için
-
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from datetime import datetime, timedelta
-from .models import Cart, CartItem
-
-
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from datetime import datetime, timedelta
-from .models import Cart, CartItem
 
 from datetime import datetime
-from django.shortcuts import render, redirect
-from django.contrib import messages
+
 from django.contrib.auth.decorators import login_required
-from .models import Cart, CartItem, Order
 
 @login_required
 def checkout(request):
@@ -583,9 +522,9 @@ def checkout(request):
     return render(request, 'checkout.html', {'cart_items': cart_items, "cart": cart})
 
 
-from .models import Cart, CartItem
-from django.shortcuts import render, redirect
-from django.contrib import messages
+from .models import Cart, CartItem, Order
+
+from django.contrib.auth.decorators import login_required
 
 @login_required
 def order_checkout(request):
@@ -597,6 +536,14 @@ def order_checkout(request):
 
             if not cart_items:
                 messages.error(request, "Sepetinizde ürün bulunmuyor.")
+                return redirect('view_cart')
+
+            # Sipariş toplamını hesapla
+            total_price = sum(item.quantity * item.price for item in cart_items)
+
+            # Kullanıcı bakiyesini kontrol et
+            if request.user.budget < total_price:
+                messages.error(request, "Bakiye yetersiz. Lütfen bakiyenizi güncelleyin.")
                 return redirect('view_cart')
 
             # Stok kontrolü ve güncellemesi
@@ -616,13 +563,23 @@ def order_checkout(request):
                     product=item.product,
                     quantity=item.quantity,
                     total_price=item.quantity * item.price,
+                    order_status='Pending'  # Başlangıç durumu 'Pending'
                 )
 
-            cart.is_active = False  # Sepeti pasif yap
+            # Kullanıcının bakiyesinden sipariş tutarını düş
+            request.user.budget -= total_price
+            request.user.save()
+
+            # Sepeti pasif yap
+            cart.is_active = False
             cart.save()
 
-            # Başarılı mesaj
-            messages.success(request, "Siparişiniz başarıyla tamamlandı!")
+            # Kullanıcıya bilgilendirme mesajı gönder
+            messages.success(
+                request,
+                f"Siparişiniz başarıyla oluşturuldu! {total_price} TRY bakiyenizden düşüldü. "
+                "Siparişiniz onaylanana kadar beklemede kalacaktır."
+            )
 
             # Checkout zamanı sıfırla
             if 'checkout_start_time' in request.session:
@@ -636,14 +593,6 @@ def order_checkout(request):
         return redirect('checkout')
 
 
-from django.shortcuts import redirect
-from django.contrib import messages
-from .models import Product
-
-
-from django.contrib import messages
-from django.shortcuts import redirect
-from .models import Product
 
 def add_default_products(request):
     # Sabit ürünler
@@ -656,7 +605,7 @@ def add_default_products(request):
     ]
 
     # Media klasöründeki varsayılan görselin yolu
-    default_image_path = "media/product_images/kahvaltilik_krep.jpg"
+    default_image_path = "product_images/kahvaltilik_krep.jpg"
 
     # Ürünleri ekleyin veya stokları güncelleyin
     for product_data in default_products:
@@ -685,11 +634,6 @@ def add_default_products(request):
     return redirect("admin_dashboard")  # Admin dashboard'unuzun URL ismini yazın
 
 
-from django.shortcuts import redirect
-from django.contrib import messages
-from .models import Product
-
-
 def delete_all_products(request):
     # Veritabanındaki tüm ürünleri sil
     Product.objects.all().delete()
@@ -698,16 +642,7 @@ def delete_all_products(request):
     messages.success(request, "Tüm ürünler başarıyla silindi.")
     return redirect("admin_dashboard")  # Admin dashboard'unuzun URL ismini yazın
 
-
-from django.shortcuts import render, get_object_or_404, redirect
 from .models import Product
-from .forms import ProductForm
-from django.contrib import messages
-
-from django.shortcuts import render, get_object_or_404, redirect
-from .models import Product
-from .forms import ProductForm
-from django.contrib import messages
 
 
 def edit_product(request, product_id):
@@ -733,4 +668,22 @@ def edit_product(request, product_id):
     return render(request, 'edit_product.html', {'product': product})
 
 
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import get_object_or_404
+from .models import Order
+
+from django.shortcuts import render, redirect
+from .models import Order
+from django.contrib import messages
+
+from django.shortcuts import render, redirect
+from .models import Order
+from django.contrib import messages
+
+def all_orders(request):
+    orders = Order.objects.all()  # Veritabanındaki tüm siparişleri al
+    context = {
+        'orders': orders,
+    }
+    return render(request, 'all_orders.html', context)
 

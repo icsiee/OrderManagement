@@ -1,0 +1,23 @@
+<!-- all_orders.html dosyası -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tüm Siparişler</title>
+</head>
+<body>
+    <h1>Tüm Siparişler</h1>
+
+    <ul>
+        {% for order in orders %}
+            <li>Order #{{ order.id }} - {{ order.status }} - {{ order.total_price }} TRY</li>
+        {% endfor %}
+    </ul>
+
+    <!-- Geri gitmek için buton -->
+    <a href="{% url 'admin_dashboard' %}">
+        <button>Geri Dön</button>
+    </a>
+</body>
+</html>

@@ -6,6 +6,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .status-pending {
+            background-color: #f7dc5c; /* Sarı */
+            padding: 5px;
+            border-radius: 4px;
+            color: #000;
+        }
+        .status-completed {
+            background-color: #58d68d; /* Yeşil */
+            padding: 5px;
+            border-radius: 4px;
+            color: #000;
+        }
+        .status-cancelled {
+            background-color: #e74c3c; /* Kırmızı */
+            padding: 5px;
+            border-radius: 4px;
+            color: #fff;
+        }
+    </style>
 </head>
 
 <body>
@@ -31,6 +51,38 @@
             <a href="{% url 'generate_random_customers' %}" class="btn btn-primary mb-2">Random Kullanıcı Üret</a>
             <a href="{% url 'delete_all_customers' %}" class="btn btn-warning mb-2">Tüm Kullanıcıları Sil</a>
         </div>
+
+       <h2>Tüm Siparişler:</h2>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Müşteri Adı</th>
+            <th>Ürün Adı</th>
+            <th>Fiyat</th>
+            <th>Sipariş Durumu</th>
+            <th>Tarih</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+            <tr class="{% if order.order_status == 'Pending' %}table-warning{% elif order.order_status == 'Completed' %}table-success{% else %}table-danger{% endif %}">
+                <td>{{ forloop.counter }}</td>
+                <td>{{ order.customer.customer_name }}</td>
+                <td>{{ order.product.product_name }}</td>
+                <td>{{ order.total_price }} TL</td>
+                <td>{{ order.get_order_status_display }}</td>
+                <td>{{ order.order_date }}</td>
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="6" class="text-center">Hiç sipariş bulunamadı.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
 
         <!-- Müşteri Listesi -->
         <h2>Müşteri Listesi</h2>
@@ -107,8 +159,7 @@
                 {% endfor %}
             </tbody>
         </table>
-{% block content %}
-    {% endblock %}
+
         <!-- Ürün Ekleme Formu -->
         <h2 class="mt-5">Yeni Ürün Ekle</h2>
         <form method="POST" action="{% url 'add_product' %}" enctype="multipart/form-data">

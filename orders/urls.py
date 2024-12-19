@@ -31,6 +31,7 @@ urlpatterns = [
     path('add-default-products/', views.add_default_products, name='add_default_products'),
     path('delete-all-products/', views.delete_all_products, name='delete_all_products'),
     path('edit-product/<int:product_id>/', views.edit_product, name='edit_product'),
+    path('admin_dashboard/all_orders/', views.all_orders, name='all_orders'),  # Yeni URL ekleyin
 
     # Diğer URL desenleri...
 
