@@ -172,6 +172,8 @@ def admin_dashboard(request):
     customers = Customer.objects.filter(is_admin=False)
     products = Product.objects.all()  # Tüm ürünleri getir
     orders = Order.objects.all().order_by('-order_date')  # En son siparişleri sırala
+    for order in orders:
+        order.waiting_time = order.waiting_time_seconds()
 
     # Eğer admin ilk kez giriş yaptıysa, başarı mesajını göster
     if request.session.get('admin_logged_in', False):

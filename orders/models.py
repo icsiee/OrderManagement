@@ -133,12 +133,18 @@ class CartItem(models.Model):
         return f"{self.product_name} - {self.quantity}"
 
 
-
+from datetime import datetime
+from django.utils import timezone
+from datetime import timedelta
 # Order model
+from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
 class Order(models.Model):
     order_id = models.AutoField(primary_key=True)  # Auto-generated unique OrderID
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)  # Foreign Key linking to Customer
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)  # Foreign Key linking to Product
+    customer = models.ForeignKey('Customer', on_delete=models.CASCADE)  # Foreign Key linking to Customer
+    product = models.ForeignKey('Product', on_delete=models.CASCADE)  # Foreign Key linking to Product
     quantity = models.IntegerField()  # Quantity of the product ordered
     total_price = models.DecimalField(max_digits=10, decimal_places=2)  # Total price for the order (quantity * price)
     order_date = models.DateTimeField(auto_now_add=True)  # Order date
@@ -148,38 +154,54 @@ class Order(models.Model):
         default='Pending'  # Default status is 'Pending'
     )
 
-    # Ensure a customer can order a maximum of 5 units of a product
+    def waiting_time_seconds(self):
+        """
+        Calculates the time in seconds since the order was placed.
+        Returns None if order_date is not available.
+        """
+        current_time = timezone.now()
+        if self.order_date:
+            return (current_time - self.order_date).total_seconds()
+        return None
+
     def clean(self):
+        """
+        Custom validation to ensure a customer does not order more than 5 units of a product.
+        """
         if self.quantity > 5:
             raise ValidationError('A customer can only order a maximum of 5 units of a product.')
 
     def __str__(self):
+        """
+        String representation of the Order object.
+        """
         return f"Order {self.order_id} by {self.customer.customer_name}"
 
     def process_cart_to_order(self):
-        # Aktif sepeti bul
+        """
+        Processes the active cart of the customer, converts cart items to orders, and clears the cart.
+        """
+        # Retrieve the active cart for the customer
         cart = Cart.objects.get(customer=self.customer, is_active=True)
 
-        # Sepetteki ürünleri al
+        # Retrieve items in the cart
         cart_items = CartItem.objects.filter(cart=cart)
 
         for cart_item in cart_items:
-            # Sipariş oluştur
+            # Create an order for each cart item
             Order.objects.create(
                 customer=self.customer,
                 product=cart_item.product,
                 quantity=cart_item.quantity,
-                total_price=cart_item.quantity * cart_item.price,
+                total_price=cart_item.quantity * cart_item.product.price,  # Ensure price is from the product model
             )
 
-        # Sepet sıfırlanıyor
+        # Deactivate the cart
         cart.is_active = False
         cart.save()
 
-        # Sepet içeriğini temizle
+        # Clear the cart items
         cart_items.delete()
-
-
 # Log model
 class Log(models.Model):
     log_id = models.AutoField(primary_key=True)  # Auto-generated unique LogID
