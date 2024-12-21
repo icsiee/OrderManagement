@@ -60,37 +60,66 @@
             <a href="{% url 'delete_all_customers' %}" class="btn btn-warning mb-2">Tüm Kullanıcıları Sil</a>
         </div>
 
-       <h2>Tüm Siparişler:</h2>
-<table class="table table-striped">
-<thead>
-    <tr>
-        <th>#</th>
-        <th>Müşteri Adı</th>
-                <th>Kullanıcı Tipi</th> <!-- Yeni sütun -->
-        <th>Ürün Adı</th>
-        <th>Fiyat</th>
-        <th>Sipariş Durumu</th>
-        <th>Tarih</th>
-        <th>Bekleme Süresi (sn)</th>
-    </tr>
-</thead>
-<tbody>
-    {% for order in orders %}
+<h2>Tüm Siparişler:</h2>
+<table>
+    <thead>
         <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ order.customer.customer_name }}</td>
-                        <td>{{ order.customer.customer_type }}</td> <!-- Kullanıcı tipi -->
-
-            <td>{{ order.product.product_name }}</td>
-            <td>{{ order.total_price }} TL</td>
-            <td>{{ order.get_order_status_display }}</td>
-            <td>{{ order.order_date }}</td>
-            <td class="waiting-time" data-order-id="{{ order.id }}">{{ order.waiting_time }}</td>
+            <th>Sipariş ID</th>
+            <th>Müşteri</th>
+            <th>Ürün</th>
+            <th>Adet</th>
+            <th>Toplam Fiyat</th>
+            <th>Bekleme Süresi (saniye)</th>
+            <th>Öncelik Skoru</th>
+            <th>Durum</th>
         </tr>
-    {% endfor %}
-</tbody>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+        <tr>
+            <td>{{ order.order_id }}</td>
+            <td>{{ order.customer.customer_name }}</td>
+            <td>{{ order.product.product_name }}</td>
+            <td>{{ order.quantity }}</td>
+            <td>{{ order.total_price }}</td>
+            <td class="waiting-time" data-priority-base="{{ order.priority_base }}">
+    {{ order.waiting_time_display }}
+</td>
 
+            <td class="priority-score">
+                {{ order.priority_score|floatformat:2 }}
+            </td>
+            <td>{{ order.order_status }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
+
+<script>
+    function updateWaitingAndPriority() {
+        const rows = document.querySelectorAll('tbody tr'); // Tablo satırlarını seç
+
+        rows.forEach(row => {
+            const waitingTimeCell = row.querySelector('.waiting-time');
+            const priorityScoreCell = row.querySelector('.priority-score');
+
+            // Bekleme süresini artır
+            let waitingTime = parseInt(waitingTimeCell.innerText, 10);
+            waitingTime += 1;
+            waitingTimeCell.innerText = waitingTime;
+
+            // Öncelik skorunu güncelle
+            const basePriority = parseFloat(waitingTimeCell.dataset.priorityBase);
+            const newPriorityScore = basePriority + (waitingTime * 0.5);
+            priorityScoreCell.innerText = newPriorityScore.toFixed(2);
+        });
+    }
+
+    // Her 1 saniyede bir güncelleme yap
+    setInterval(updateWaitingAndPriority, 1000);
+</script>
+
+
 
 
 

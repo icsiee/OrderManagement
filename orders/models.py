@@ -1,10 +1,12 @@
-
-from django.contrib.auth.hashers import make_password
-
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.hashers import make_password
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
+
+# Customer Model
 class Customer(AbstractUser):
-    username = None  # AbstractUser'dan gelen username'ı devre dışı bırakıyoruz
+    username = None  # AbstractUser'dan gelen username'i devre dışı bırakıyoruz
     customer_name = models.CharField(max_length=100, unique=True)
     is_admin = models.BooleanField(default=False)
     budget = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -18,8 +20,8 @@ class Customer(AbstractUser):
     USERNAME_FIELD = 'customer_name'
 
     def save(self, *args, **kwargs):
-        # Eğer şifre düz metinse, hashleyerek kaydet
-        if not self.password.startswith('pbkdf2_'):  # Daha önce hashlenmemişse
+        # Şifre düz metinse, hashleyerek kaydet
+        if not self.password.startswith('pbkdf2_'):
             self.password = make_password(self.password)
 
         # TotalSpent kontrolü ve customer_type güncellemesi
@@ -31,25 +33,15 @@ class Customer(AbstractUser):
     def __str__(self):
         return self.customer_name
 
-
-
-# Product model
-# Product model
-from django.core.exceptions import ValidationError
-from django.db import models
-
+# Product Model
 class Product(models.Model):
-    product_id = models.AutoField(primary_key=True)  # Auto-generated unique ProductID
-    product_name = models.CharField(max_length=100)  # ProductName
-    stock = models.IntegerField()  # Available Stock
-    price = models.DecimalField(max_digits=10, decimal_places=2)  # Product Price
-    image = models.ImageField(upload_to='product_images/', null=True, blank=True)  # Optional image
-    def save(self, *args, **kwargs):
-        try:
-            self.stock = int(self.stock)  # Stok alanını int'e dönüştür
-        except ValueError:
-            raise ValidationError("Stok miktarı geçerli bir sayı olmalıdır.")
+    product_id = models.AutoField(primary_key=True)
+    product_name = models.CharField(max_length=100)
+    stock = models.IntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    image = models.ImageField(upload_to='product_images/', null=True, blank=True)
 
+    def save(self, *args, **kwargs):
         if self.stock < 0:
             raise ValidationError("Stok miktarı sıfırdan küçük olamaz.")
         super().save(*args, **kwargs)
@@ -57,160 +49,75 @@ class Product(models.Model):
     def __str__(self):
         return self.product_name
 
-
-
-from django.db import models
-
-# Cart model
-from django.db import models
-from django.core.exceptions import ValidationError
-from django.contrib.auth import get_user_model
-
-from django.db import models
-from django.contrib.auth import get_user_model
-
-Customer = get_user_model()
-
+# Cart Model
 class Cart(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)  # Her müşteri birden fazla sepet oluşturabilir
-    is_active = models.BooleanField(default=True)  # Sepetin aktif olup olmadığını belirler
-    created_at = models.DateTimeField(auto_now_add=True)  # Sepetin oluşturulma tarihi
-    updated_at = models.DateTimeField(auto_now=True)  # Sepetin son güncellenme tarihi
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        """
-        Save işlemi sırasında yalnızca bir aktif sepet olmasını sağlar.
-        """
         if self.is_active:
-            # Aynı müşteri için başka bir aktif sepeti pasif yap
             Cart.objects.filter(customer=self.customer, is_active=True).exclude(id=self.id).update(is_active=False)
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Cart {self.id} for {self.customer.customer_name} ({'Active' if self.is_active else 'Inactive'})"
 
-    @staticmethod
-    def get_or_create_active_cart(customer):
-        """
-        Müşteri için mevcut aktif sepeti döndürür. Aktif sepet yoksa yeni bir tane oluşturur.
-        """
-        cart = Cart.objects.filter(customer=customer, is_active=True).first()
-        if not cart:
-            cart = Cart.objects.create(customer=customer, is_active=True)
-        return cart
-
-    def complete_cart(self):
-        """
-        Sepeti tamamlar ve pasif hale getirir.
-        """
-        if self.is_active:
-            self.is_active = False
-            self.save()
-        else:
-            raise ValueError("Cart is already inactive.")
-
-
-# CartItem model
+# CartItem Model
 class CartItem(models.Model):
-    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)  # Sepet ile ilişki
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)  # Ürün ile ilişki
-    quantity = models.PositiveIntegerField(default=1)  # Sepetteki ürün miktarı
-    price = models.DecimalField(max_digits=10, decimal_places=2)  # Fiyat alanı, ürün fiyatından alınacak
-    product_name = models.CharField(max_length=255)  # Ürün adı
-    product_image = models.URLField()  # Ürün görseli URL'si
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    product_name = models.CharField(max_length=255)
+    product_image = models.URLField()
 
     def save(self, *args, **kwargs):
-        # Fiyat, ürünün fiyatından alınıyor
-        if not self.price:
-            self.price = self.product.price
-        if not self.product_name:
-            self.product_name = self.product.product_name
-        if not self.product_image and self.product.image:
-            self.product_image = self.product.image.url  # Görsel URL'sini al
+        self.price = self.product.price
+        self.product_name = self.product.product_name
+        if self.product.image:
+            self.product_image = self.product.image.url
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.product_name} - {self.quantity}"
 
-
-from datetime import datetime
-from django.utils import timezone
-from datetime import timedelta
-# Order model
-from django.db import models
-from django.core.exceptions import ValidationError
-from django.utils import timezone
-
+# Order Model
 class Order(models.Model):
-    order_id = models.AutoField(primary_key=True)  # Auto-generated unique OrderID
-    customer = models.ForeignKey('Customer', on_delete=models.CASCADE)  # Foreign Key linking to Customer
-    product = models.ForeignKey('Product', on_delete=models.CASCADE)  # Foreign Key linking to Product
-    quantity = models.IntegerField()  # Quantity of the product ordered
-    total_price = models.DecimalField(max_digits=10, decimal_places=2)  # Total price for the order (quantity * price)
-    order_date = models.DateTimeField(auto_now_add=True)  # Order date
+    order_id = models.AutoField(primary_key=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.IntegerField()
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    order_date = models.DateTimeField(auto_now_add=True)
     order_status = models.CharField(
         max_length=20,
         choices=[('Pending', 'Pending'), ('Completed', 'Completed'), ('Cancelled', 'Cancelled')],
-        default='Pending'  # Default status is 'Pending'
+        default='Pending'
     )
 
     def waiting_time_seconds(self):
-        """
-        Calculates the time in seconds since the order was placed.
-        Returns None if order_date is not available.
-        """
         current_time = timezone.now()
         if self.order_date:
             return (current_time - self.order_date).total_seconds()
         return None
 
     def clean(self):
-        """
-        Custom validation to ensure a customer does not order more than 5 units of a product.
-        """
         if self.quantity > 5:
             raise ValidationError('A customer can only order a maximum of 5 units of a product.')
 
     def __str__(self):
-        """
-        String representation of the Order object.
-        """
         return f"Order {self.order_id} by {self.customer.customer_name}"
 
-    def process_cart_to_order(self):
-        """
-        Processes the active cart of the customer, converts cart items to orders, and clears the cart.
-        """
-        # Retrieve the active cart for the customer
-        cart = Cart.objects.get(customer=self.customer, is_active=True)
-
-        # Retrieve items in the cart
-        cart_items = CartItem.objects.filter(cart=cart)
-
-        for cart_item in cart_items:
-            # Create an order for each cart item
-            Order.objects.create(
-                customer=self.customer,
-                product=cart_item.product,
-                quantity=cart_item.quantity,
-                total_price=cart_item.quantity * cart_item.product.price,  # Ensure price is from the product model
-            )
-
-        # Deactivate the cart
-        cart.is_active = False
-        cart.save()
-
-        # Clear the cart items
-        cart_items.delete()
-# Log model
+# Log Model
 class Log(models.Model):
-    log_id = models.AutoField(primary_key=True)  # Auto-generated unique LogID
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)  # Foreign Key linking to Customer
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)  # Foreign Key linking to Order
-    log_date = models.DateTimeField(auto_now_add=True)  # Log date
-    log_type = models.CharField(max_length=50)  # Type of log (e.g., 'Order Created', 'Order Cancelled')
-    log_details = models.TextField()  # Details of the log
+    log_id = models.AutoField(primary_key=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    log_date = models.DateTimeField(auto_now_add=True)
+    log_type = models.CharField(max_length=50)
+    log_details = models.TextField()
 
     def __str__(self):
         return f"Log {self.log_id} for Order {self.order.order_id}"
-

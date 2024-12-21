@@ -166,29 +166,56 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Customer, Product, Order
 
-@login_required
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from .models import Customer, Product, Order
+
+from django.shortcuts import render
+from django.utils.timezone import now
+from .models import Order, Customer, Product
+
 def admin_dashboard(request):
-    # Superuser olmayan müşterileri filtrele
-    customers = Customer.objects.filter(is_admin=False)
-    products = Product.objects.all()  # Tüm ürünleri getir
-    orders = Order.objects.all().order_by('-order_date')  # En son siparişleri sırala
+    # Tüm siparişleri al
+    orders = Order.objects.select_related('customer', 'product').all()
+
+    # Sipariş detaylarını işlemek için bir liste oluştur
+    order_list = []
     for order in orders:
-        order.waiting_time = order.waiting_time_seconds()
+        # Bekleme süresini hesapla (örneğin, sipariş oluşturulma tarihinden itibaren geçen süre)
+        waiting_time_seconds = (now() - order.order_date).total_seconds()
 
-    # Eğer admin ilk kez giriş yaptıysa, başarı mesajını göster
-    if request.session.get('admin_logged_in', False):
-        messages.success(request, "Admin girişi başarılı!")
-        # Admin'in ilk kez giriş yaptığını sıfırla
-        request.session['admin_logged_in'] = False
+        # Müşteri türüne göre öncelik tabanı belirle
+        priority_base = 15 if order.customer.customer_type == 'Premium' else 10
 
+        # Öncelik skoru hesapla
+        priority_score = priority_base + (waiting_time_seconds / 60 * 0.5)  # Dakika başına 0.5 artış
 
-    # Veri sözlüğü sadece bir kez kullanılarak render yapılır
+        # Siparişi listeye ekle
+        order_list.append({
+            'order_id': order.order_id,
+            'customer': order.customer,
+            'product': order.product,
+            'quantity': order.quantity,
+            'total_price': order.total_price,
+            'waiting_time_display': int(waiting_time_seconds),  # Saniye olarak göster
+            'priority_score': priority_score,
+            'priority_base': priority_base,  # Burada priority_base'i de ekliyoruz
+            'order_status': order.order_status,
+        })
+
+    # Tüm müşterileri al
+    customers = Customer.objects.all()
+
+    # Tüm ürünleri al
+    products = Product.objects.all()
+
+    # Şablona verileri gönder
     context = {
+        'orders': order_list,
         'customers': customers,
         'products': products,
-        'orders': orders,
     }
-
     return render(request, 'admin_dashboard.html', context)
 
 
