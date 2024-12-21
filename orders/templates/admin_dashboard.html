@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
+   <style>
         .status-pending {
             background-color: #f7dc5c; /* Sarı */
             padding: 5px;
@@ -25,6 +25,14 @@
             border-radius: 4px;
             color: #fff;
         }
+         .premium-customer {
+        background-color: #d1f2eb; /* Açık yeşil arka plan */
+        font-weight: bold; /* Kalın yazı */
+    }
+
+    .standard-customer {
+        background-color: #f8f9fa; /* Açık gri arka plan */
+    }
     </style>
 </head>
 
@@ -58,6 +66,7 @@
     <tr>
         <th>#</th>
         <th>Müşteri Adı</th>
+                <th>Kullanıcı Tipi</th> <!-- Yeni sütun -->
         <th>Ürün Adı</th>
         <th>Fiyat</th>
         <th>Sipariş Durumu</th>
@@ -70,6 +79,8 @@
         <tr>
             <td>{{ forloop.counter }}</td>
             <td>{{ order.customer.customer_name }}</td>
+                        <td>{{ order.customer.customer_type }}</td> <!-- Kullanıcı tipi -->
+
             <td>{{ order.product.product_name }}</td>
             <td>{{ order.total_price }} TL</td>
             <td>{{ order.get_order_status_display }}</td>
