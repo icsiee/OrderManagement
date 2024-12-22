@@ -58,9 +58,7 @@
         <!-- Admin işlemleri için butonlar -->
         <div class="mb-4">
             <a href="{% url 'logout' %}" class="btn btn-danger mb-2">Çıkış Yap</a>
-            <a href="{% url 'add_customer' %}" class="btn btn-success mb-2">Yeni Müşteri Ekle</a>
-            <a href="{% url 'generate_random_customers' %}" class="btn btn-primary mb-2">Random Kullanıcı Üret</a>
-            <a href="{% url 'delete_all_customers' %}" class="btn btn-warning mb-2">Tüm Kullanıcıları Sil</a>
+
         </div>
 
         <h2>Tüm Siparişler:</h2>
@@ -164,9 +162,14 @@
 
 
 
-
         <!-- Müşteri Listesi -->
-        <h2>Müşteri Listesi</h2>
+        <h2>Müşteri Listesi:</h2>
+         <div class="mb-4">
+            <a href="{% url 'add_customer' %}" class="btn btn-success mb-2">Yeni Müşteri Ekle</a>
+            <a href="{% url 'generate_random_customers' %}" class="btn btn-primary mb-2">Random Kullanıcı Üret</a>
+            <a href="{% url 'delete_all_customers' %}" class="btn btn-warning mb-2">Tüm Kullanıcıları Sil</a>
+
+        </div>
         <table class="table table-striped">
             <thead>
                 <tr>
@@ -199,12 +202,13 @@
             </tbody>
         </table>
 
-        <a href="{% url 'add_default_products' %}" class="btn btn-info mb-4">Sabit Ürünleri Yükle</a>
-        <!-- Ürünleri Sil Butonu -->
-        <a href="{% url 'delete_all_products' %}" class="btn btn-danger mb-4">Tüm Ürünleri Sil</a>
 
         <!-- Ürün Listesi -->
         <h2 class="mt-4">Mevcut Ürünler</h2>
+          <a href="{% url 'add_default_products' %}" class="btn btn-info mb-4">Sabit Ürünleri Yükle</a>
+        <!-- Ürünleri Sil Butonu -->
+        <a href="{% url 'delete_all_products' %}" class="btn btn-danger mb-4">Tüm Ürünleri Sil</a>
+
         <table class="table table-striped">
             <thead>
                 <tr>
