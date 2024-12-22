@@ -71,6 +71,8 @@
                     <th>Sipariş ID</th>
                     <th>Müşteri</th>
                     <th>Müşteri Türü</th> <!-- Müşteri türü kolonu -->
+                            <th>Sipariş Adı</th> <!-- Yeni sütun -->
+
                     <th>Adet</th>
                     <th>Toplam Fiyat</th>
                     <th>Bekleme Süresi (saniye)</th>
@@ -92,6 +94,8 @@
                         Standard
                         {% endif %}
                     </td>
+                            <td>{{ order.product.product_name }}</td> <!-- Sipariş adı hücresi -->
+
                     <td>{{ order.quantity }}</td>
                     <td>{{ order.total_price }}</td>
                     <td class="waiting-time" data-priority-base="{{ order.priority_base }}">
@@ -145,6 +149,17 @@
         // Her 1 saniyede bir güncelleme yap
         setInterval(updateWaitingAndPriority, 1000);
     </script>
+
+<script>
+    const socket = new WebSocket("ws://127.0.0.1:8000/ws/orders/");
+
+    socket.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        alert(data.message); // Bildirimi göster
+        location.reload();   // Sayfayı yenile
+    };
+</script>
+
 </body>
 </html>
 

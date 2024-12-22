@@ -493,6 +493,11 @@ def add_to_cart(request):
 
 
 
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required
+from .models import Cart, CartItem
+from django.contrib import messages
+
 @login_required
 def view_cart(request):
     try:
@@ -501,7 +506,17 @@ def view_cart(request):
     except Cart.DoesNotExist:
         cart_items = []
 
-    return render(request, 'view_cart.html', {'cart_items': cart_items})
+    # Sepet toplam fiyatını hesapla
+    total_price = sum(item.quantity * item.price for item in cart_items)
+
+    # Müşterinin bütçesini al
+    budget = request.user.budget
+
+    # Eğer sepetin toplam fiyatı müşterinin bütçesini aşıyorsa, hata mesajı göster
+    if total_price > budget:
+        messages.error(request, "Bütçeniz yetersiz. Ürün adetlerini azaltın veya bakiyenizi güncelleyin.")
+
+    return render(request, 'view_cart.html', {'cart_items': cart_items, 'total_price': total_price, 'budget': budget})
 
 
 from django.contrib.auth.decorators import login_required
@@ -562,6 +577,12 @@ from .models import Cart, CartItem, Order
 
 from django.contrib.auth.decorators import login_required
 
+from django.db import transaction
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from datetime import datetime
+from .models import Cart, CartItem, Order, Product
+
 @login_required
 def order_checkout(request):
     if request.method == 'POST':
@@ -582,33 +603,45 @@ def order_checkout(request):
                 messages.error(request, "Bakiye yetersiz. Lütfen bakiyenizi güncelleyin.")
                 return redirect('view_cart')
 
-            # Stok kontrolü ve güncellemesi
-            for item in cart_items:
-                product = item.product
-                if product.stock >= item.quantity:
-                    product.stock -= item.quantity
-                    product.save()
-                else:
-                    messages.error(request, f"{product.product_name} için yeterli stok bulunmuyor.")
-                    return redirect('checkout')
+            # 15 saniye kontrolü (örnek)
+            request.session['checkout_start_time'] = datetime.now().timestamp()
+            current_time = datetime.now().timestamp()
+            start_time = request.session.get('checkout_start_time', current_time)
+            if (current_time - start_time) > 15:
+                messages.error(request, "Sipariş süresi doldu. Lütfen tekrar deneyin.")
+                return redirect('view_cart')
 
-            # Sipariş oluştur ve aktif sepeti pasif yap
-            for item in cart_items:
-                Order.objects.create(
-                    customer=request.user,
-                    product=item.product,
-                    quantity=item.quantity,
-                    total_price=item.quantity * item.price,
-                    order_status='Pending'  # Başlangıç durumu 'Pending'
-                )
+            # Veritabanı işlemlerini bir transaction içinde yapalım
+            with transaction.atomic():
+                # Stok kontrolü ve güncellemesi
+                for item in cart_items:
+                    product = item.product
+                    if product.stock >= item.quantity:
+                        # Stok güncellenmeden önce kilitlenmesi gerekebilir
+                        product.stock -= item.quantity
+                        product.save()
+                    else:
+                        # Yetersiz stok durumunda işlem yapma
+                        messages.error(request, f"{product.product_name} için yeterli stok bulunmuyor.")
+                        return redirect('checkout')
 
-            # Kullanıcının bakiyesinden sipariş tutarını düş
-            request.user.budget -= total_price
-            request.user.save()
+                # Sipariş oluştur ve aktif sepeti pasif yap
+                for item in cart_items:
+                    Order.objects.create(
+                        customer=request.user,
+                        product=item.product,
+                        quantity=item.quantity,
+                        total_price=item.quantity * item.price,
+                        order_status='Pending'  # Başlangıç durumu 'Pending'
+                    )
 
-            # Sepeti pasif yap
-            cart.is_active = False
-            cart.save()
+                # Kullanıcının bakiyesinden sipariş tutarını düş
+                request.user.budget -= total_price
+                request.user.save()
+
+                # Sepeti pasif yap
+                cart.is_active = False
+                cart.save()
 
             # Kullanıcıya bilgilendirme mesajı gönder
             messages.success(
@@ -622,6 +655,7 @@ def order_checkout(request):
                 del request.session['checkout_start_time']
 
             return redirect('customer_dashboard')
+
         except Cart.DoesNotExist:
             messages.error(request, "Aktif bir sepet bulunamadı.")
             return redirect('view_cart')
@@ -770,3 +804,28 @@ def delete_order(request, order_id):
 
     # Admin paneline yönlendir
     return redirect('admin_dashboard')
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .models import Product
+from .forms import ProductForm  # Eğer bir form kullanıyorsanız
+
+from .forms import ProductForm
+
+
+def edit_product(request, product_id):
+    product = get_object_or_404(Product, product_id=product_id)
+
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES, instance=product)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Ürün başarıyla güncellendi!')
+            return redirect('admin_dashboard')
+        else:
+            messages.error(request, 'Geçersiz veri girdiniz.')
+
+    else:
+        form = ProductForm(instance=product)
+
+    return render(request, 'edit_product.html', {'form': form, 'product': product})

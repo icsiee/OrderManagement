@@ -36,6 +36,7 @@ LOGIN_REDIRECT_URL = '/'  # Giriş yaptıktan sonra anasayfaya yönlendirme
 LOGOUT_REDIRECT_URL = '/'  # Çıkış yaptıktan sonra anasayfaya yönlendirme
 
 # settings.py
+ASGI_APPLICATION = "order_management.asgi.application"
 
 AUTH_USER_MODEL = 'orders.Customer'  # Replace 'yourapp' with your app's name
 
@@ -50,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'orders',  # 'orders' app'i projeye ekleniyor
+    "channels",
 
 ]
 
@@ -140,6 +142,16 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# settings.py
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 
 # settings.py

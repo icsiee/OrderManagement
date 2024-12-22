@@ -13,6 +13,16 @@
     <div class="container mt-5">
         <h1>Sepetiniz</h1>
 
+        {% if messages %}
+            <div class="alert alert-danger">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <p><strong>Bütçeniz: </strong>{{ budget }} TRY</p>
+
         {% if cart_items %}
         <div class="table-responsive">
             <table class="table table-bordered">
@@ -29,29 +39,33 @@
                     <tr>
                         <td>{{ item.product_name }}</td>
                         <td>{{ item.price }} TRY</td>
-                       <td>
-    <form method="POST" action="{% url 'update_cart_item' item.id %}">
-        {% csrf_token %}
-        <input type="number" class="form-control" name="quantity" value="{{ item.quantity }}" min="1" max="5" required>
-        <button type="submit" class="btn btn-warning mt-2">Adeti Güncelle</button>
-    </form>
-</td>
-<td>
-    <form method="POST" action="{% url 'remove_cart_item' item.id %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-danger">Sil</button>
-    </form>
-</td>
-
+                        <td>
+                            <form method="POST" action="{% url 'update_cart_item' item.id %}">
+                                {% csrf_token %}
+                                <input type="number" class="form-control" name="quantity" value="{{ item.quantity }}" min="1" max="5" required>
+                                <button type="submit" class="btn btn-warning mt-2">Adeti Güncelle</button>
+                            </form>
+                        </td>
+                        <td>
+                            <form method="POST" action="{% url 'remove_cart_item' item.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">Sil</button>
+                            </form>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        <!-- Sepet Görüntüleme -->
-<div class="text-center mt-5">
-    <a href="{% url 'checkout' %}" class="btn btn-success btn-lg">Ödeme Sayfasına Git</a>
-</div>
+
+        <div class="text-center mt-5">
+            <!-- Toplam fiyatı kontrol et ve ödeme sayfasına yönlendirme -->
+            {% if total_price <= budget %}
+                <a href="{% url 'checkout' %}" class="btn btn-success btn-lg">Ödeme Sayfasına Git</a>
+            {% else %}
+                <p class="text-danger">Sepetinizdeki ürünlerin toplam fiyatı bütçenizi aşıyor. Ürün adetlerini azaltın.</p>
+            {% endif %}
+        </div>
 
         {% else %}
         <p>Sepetiniz boş.</p>
