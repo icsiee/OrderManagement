@@ -32,6 +32,7 @@ urlpatterns = [
     path('delete-all-products/', views.delete_all_products, name='delete_all_products'),
     path('edit-product/<int:product_id>/', views.edit_product, name='edit_product'),
     path('admin_dashboard/all_orders/', views.all_orders, name='all_orders'),  # Yeni URL ekleyin
+    path('order/<int:order_id>/', views.order_detail, name='order_detail'),
 
     # Diğer URL desenleri...
 

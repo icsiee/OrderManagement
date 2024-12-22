@@ -175,6 +175,10 @@ from django.shortcuts import render
 from django.utils.timezone import now
 from .models import Order, Customer, Product
 
+from django.utils.timezone import now
+from django.shortcuts import render
+from .models import Order, Customer, Product
+
 def admin_dashboard(request):
     # Tüm siparişleri al
     orders = Order.objects.select_related('customer', 'product').all()
@@ -203,6 +207,9 @@ def admin_dashboard(request):
             'priority_base': priority_base,  # Burada priority_base'i de ekliyoruz
             'order_status': order.order_status,
         })
+
+    # Siparişleri sıralama: Önce Premium kullanıcılar, ardından sırasıyla öncelik skoruna göre
+    order_list = sorted(order_list, key=lambda x: (x['customer'].customer_type != 'Premium', -x['priority_score']))
 
     # Tüm müşterileri al
     customers = Customer.objects.all()
@@ -715,4 +722,17 @@ def all_orders(request):
         'orders': orders,
     }
     return render(request, 'all_orders.html', context)
+
+from django.shortcuts import render, get_object_or_404
+from .models import Order
+
+def order_detail(request, order_id):
+    # Siparişi ID'sine göre al
+    order = get_object_or_404(Order, order_id=order_id)
+
+    # Siparişin detaylarını şablona gönder
+    context = {
+        'order': order,
+    }
+    return render(request, 'order_detail.html', context)
 
