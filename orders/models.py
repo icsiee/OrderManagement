@@ -30,7 +30,7 @@ class Customer(AbstractUser):
 
         super().save(*args, **kwargs)
 
-    def __str__(self):
+    def _str_(self):
         return self.customer_name
 
 # Product Model
@@ -46,7 +46,7 @@ class Product(models.Model):
             raise ValidationError("Stok miktarı sıfırdan küçük olamaz.")
         super().save(*args, **kwargs)
 
-    def __str__(self):
+    def _str_(self):
         return self.product_name
 
 # Cart Model
@@ -61,7 +61,7 @@ class Cart(models.Model):
             Cart.objects.filter(customer=self.customer, is_active=True).exclude(id=self.id).update(is_active=False)
         super().save(*args, **kwargs)
 
-    def __str__(self):
+    def _str_(self):
         return f"Cart {self.id} for {self.customer.customer_name} ({'Active' if self.is_active else 'Inactive'})"
 
 # CartItem Model
@@ -80,7 +80,7 @@ class CartItem(models.Model):
             self.product_image = self.product.image.url
         super().save(*args, **kwargs)
 
-    def __str__(self):
+    def _str_(self):
         return f"{self.product_name} - {self.quantity}"
 
 # Order Model
@@ -107,17 +107,34 @@ class Order(models.Model):
         if self.quantity > 5:
             raise ValidationError('A customer can only order a maximum of 5 units of a product.')
 
-    def __str__(self):
+    def _str_(self):
         return f"Order {self.order_id} by {self.customer.customer_name}"
 
 # Log Model
-class Log(models.Model):
-    log_id = models.AutoField(primary_key=True)
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
-    log_date = models.DateTimeField(auto_now_add=True)
-    log_type = models.CharField(max_length=50)
-    log_details = models.TextField()
 
-    def __str__(self):
-        return f"Log {self.log_id} for Order {self.order.order_id}"
+
+class Log(models.Model):
+    LOG_TYPES = [
+        ('Hata', 'Hata'),
+        ('Uyarı', 'Uyarı'),
+        ('Bilgilendirme', 'Bilgilendirme'),
+    ]
+
+    CUSTOMER_TYPES = [
+        ('Premium', 'Premium'),
+        ('Standard', 'Standard'),
+    ]
+
+
+
+    log_id = models.AutoField(primary_key=True)
+    customer_id = models.IntegerField()
+    log_type = models.CharField(max_length=50, choices=LOG_TYPES)
+    customer_type = models.CharField(max_length=50, choices=CUSTOMER_TYPES)
+    product = models.CharField(max_length=255)
+    quantity = models.PositiveIntegerField()
+    transaction_time = models.DateTimeField(auto_now_add=True)
+    transaction_result = models.CharField(max_length=255)
+
+    def _str_(self):
+        return f"Log {self.log_id} - {self.log_type}"
