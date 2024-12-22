@@ -67,6 +67,7 @@
         <table class="table">
             <thead>
                 <tr>
+
                     <th>Sipariş ID</th>
                     <th>Müşteri</th>
                     <th>Müşteri Türü</th> <!-- Müşteri türü kolonu -->
@@ -75,6 +76,8 @@
                     <th>Bekleme Süresi (saniye)</th>
                     <th>Öncelik Skoru</th>
                     <th>Durum</th>
+                    <th>İşlemler</th>
+
                 </tr>
             </thead>
             <tbody>
@@ -106,6 +109,13 @@
                         <span class="status-completed">Completed</span>
                         {% endif %}
                     </td>
+                    <td>
+    <a href="{% url 'delete_order' order_id=order.order_id %}" class="btn btn-danger btn-sm"
+       onclick="return confirm('Bu siparişi silmek istediğinizden emin misiniz?');">
+        Sil
+    </a>
+</td>
+
                 </tr>
                 {% endfor %}
             </tbody>

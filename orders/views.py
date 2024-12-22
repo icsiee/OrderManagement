@@ -736,3 +736,37 @@ def order_detail(request, order_id):
     }
     return render(request, 'order_detail.html', context)
 
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from .models import Order
+
+from django.db import transaction
+
+@login_required
+def delete_order(request, order_id):
+    from .models import Order, Customer, Product  # Gerekli modelleri içe aktarın
+
+    # Siparişi bulun
+    order = get_object_or_404(Order, order_id=order_id)
+
+    # Transaction ile güvenliği sağla
+    with transaction.atomic():
+        # 1. Kullanıcının bütçesine para iadesi yap
+        customer = order.customer
+        refund_amount = order.total_price
+        customer.budget += refund_amount
+        customer.save()
+
+        # 2. Ürünün stoğunu güncelle
+        product = order.product
+        product.stock += order.quantity
+        product.save()
+
+        # 3. Siparişi sil
+        order.delete()
+
+    # Mesaj göster
+    messages.success(request, f"Sipariş ID {order_id} başarıyla silindi. {refund_amount} TRY kullanıcıya iade edildi ve stok güncellendi.")
+
+    # Admin paneline yönlendir
+    return redirect('admin_dashboard')
