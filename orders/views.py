@@ -512,9 +512,6 @@ def view_cart(request):
     # Müşterinin bütçesini al
     budget = request.user.budget
 
-    # Eğer sepetin toplam fiyatı müşterinin bütçesini aşıyorsa, hata mesajı göster
-    if total_price > budget:
-        messages.error(request, "Bütçeniz yetersiz. Ürün adetlerini azaltın veya bakiyenizi güncelleyin.")
 
     return render(request, 'view_cart.html', {'cart_items': cart_items, 'total_price': total_price, 'budget': budget})
 
@@ -566,7 +563,7 @@ def checkout(request):
     request.session['checkout_start_time'] = datetime.now().timestamp()
     current_time = datetime.now().timestamp()
     start_time = request.session.get('checkout_start_time', current_time)
-    if (current_time - start_time) > 15:
+    if (current_time - start_time) > 10:
         messages.error(request, "Sipariş süresi doldu. Lütfen tekrar deneyin.")
         return redirect('view_cart')
 
@@ -598,11 +595,6 @@ def order_checkout(request):
             # Sipariş toplamını hesapla
             total_price = sum(item.quantity * item.price for item in cart_items)
 
-            # Kullanıcı bakiyesini kontrol et
-            if request.user.budget < total_price:
-                messages.error(request, "Bakiye yetersiz. Lütfen bakiyenizi güncelleyin.")
-                return redirect('view_cart')
-
             # 15 saniye kontrolü (örnek)
             request.session['checkout_start_time'] = datetime.now().timestamp()
             current_time = datetime.now().timestamp()
@@ -613,18 +605,6 @@ def order_checkout(request):
 
             # Veritabanı işlemlerini bir transaction içinde yapalım
             with transaction.atomic():
-                # Stok kontrolü ve güncellemesi
-                for item in cart_items:
-                    product = item.product
-                    if product.stock >= item.quantity:
-                        # Stok güncellenmeden önce kilitlenmesi gerekebilir
-                        product.stock -= item.quantity
-                        product.save()
-                    else:
-                        # Yetersiz stok durumunda işlem yapma
-                        messages.error(request, f"{product.product_name} için yeterli stok bulunmuyor.")
-                        return redirect('checkout')
-
                 # Sipariş oluştur ve aktif sepeti pasif yap
                 for item in cart_items:
                     Order.objects.create(
@@ -635,10 +615,6 @@ def order_checkout(request):
                         order_status='Pending'  # Başlangıç durumu 'Pending'
                     )
 
-                # Kullanıcının bakiyesinden sipariş tutarını düş
-                request.user.budget -= total_price
-                request.user.save()
-
                 # Sepeti pasif yap
                 cart.is_active = False
                 cart.save()
@@ -646,8 +622,7 @@ def order_checkout(request):
             # Kullanıcıya bilgilendirme mesajı gönder
             messages.success(
                 request,
-                f"Siparişiniz başarıyla oluşturuldu! {total_price} TRY bakiyenizden düşüldü. "
-                "Siparişiniz onaylanana kadar beklemede kalacaktır."
+                f"Siparişiniz başarıyla oluşturuldu!"
             )
 
             # Checkout zamanı sıfırla

@@ -148,19 +148,6 @@
         setInterval(updateWaitingAndPriority, 1000);
     </script>
 
-<script>
-    const socket = new WebSocket("ws://127.0.0.1:8000/ws/orders/");
-
-    socket.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        alert(data.message); // Bildirimi göster
-        location.reload();   // Sayfayı yenile
-    };
-</script>
-
-
-
-
 
         <!-- Müşteri Listesi -->
         <h2>Müşteri Listesi:</h2>

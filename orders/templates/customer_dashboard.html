@@ -40,12 +40,19 @@
         <div class="text-center my-5">
             <h1>Hoşgeldiniz, {{ customer_name }}!</h1>
             <p class="lead">Başarıyla giriş yaptınız. Sistemimizi kullanmaya başlayabilirsiniz.</p>
+
             <a href="{% url 'logout' %}" class="btn btn-danger btn-lg">Çıkış Yap</a>
         </div>
+
 
         <!-- Bakiye Bilgisi -->
         <div class="balance-info text-center">
             <h4>Bakiye: {{ customer_balance }} TRY</h4>
+        </div>
+
+         <!-- Sepet Görüntüle -->
+        <div class="text-center mt-5">
+            <a href="{% url 'view_cart' %}" class="btn btn-success btn-lg">Sepeti Görüntüle</a>
         </div>
 
         <!-- Ürün Seçim ve Sepet Ekleme -->
@@ -99,10 +106,7 @@
         </div>
         {% endif %}
 
-        <!-- Sepet Görüntüle -->
-        <div class="text-center mt-5">
-            <a href="{% url 'view_cart' %}" class="btn btn-success btn-lg">Sepeti Görüntüle</a>
-        </div>
+
     </div>
 
     <!-- Bootstrap JS -->
