@@ -2,6 +2,14 @@ from django.views.decorators.csrf import csrf_exempt
 
 from .forms import RegisterForm
 
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import RegisterForm
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .forms import RegisterForm
+
 def register(request):
     if request.method == "POST":
         form = RegisterForm(request.POST)
@@ -92,13 +100,7 @@ def customer_login(request):
 
 
 
-# Admin Girişi (Admin Login)
-
-
-from django.contrib import messages
-from django.shortcuts import render, redirect
 from django.contrib.auth import login
-from .models import Customer
 from django.contrib.auth.hashers import check_password
 
 
@@ -152,28 +154,15 @@ def customer_dashboard(request):
 
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from .models import Customer, Product, Order
-
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from .models import Customer, Product, Order
-
-from django.shortcuts import render
-from django.utils.timezone import now
-from .models import Order, Customer, Product
 
 from django.utils.timezone import now
-from django.shortcuts import render
-from .models import Order, Customer, Product
 
 def admin_dashboard(request):
     # Tüm siparişleri al
     orders = Order.objects.filter(order_status='Pending')
 
+    orders = Order.objects.select_related('customer', 'product').all()
+    logs=Log.objects.all()
     # Sipariş detaylarını işlemek için bir liste oluştur
     order_list = []
     for order in orders:
@@ -325,6 +314,9 @@ def generate_random_customers(request):
     messages.success(request, f"{num_customers} yeni müşteri başarıyla oluşturuldu.")
     return redirect('admin_dashboard')
 
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Customer
 
 # Tüm Kullanıcıları Silme View
 def delete_all_customers(request):
@@ -340,6 +332,15 @@ def delete_all_customers(request):
 
     return redirect('admin_dashboard')  # Admin dashboard'a geri yönlendir
 
+
+# Ürün ekleme işlemi
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Product
+
+from django.shortcuts import redirect
+from django.contrib import messages
+from .models import Product
 
 def add_product(request):
     if request.method == 'POST':
@@ -428,13 +429,6 @@ from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 
-from django.http import HttpResponse
-from django.shortcuts import redirect
-from django.contrib import messages
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
-from .models import Product, Cart, CartItem
-
 @csrf_exempt
 @login_required
 def add_to_cart(request):
@@ -450,6 +444,9 @@ def add_to_cart(request):
             product = Product.objects.get(product_id=product_id)
         except Product.DoesNotExist:
             return HttpResponse("Ürün bulunamadı.", status=404)
+
+
+            return redirect('customer_dashboard')
 
         # Sepeti oluştur veya aktif sepeti al
         cart, created = Cart.objects.get_or_create(customer=request.user, is_active=True)
@@ -493,14 +490,7 @@ def view_cart(request):
     except Cart.DoesNotExist:
         cart_items = []
 
-    # Sepet toplam fiyatını hesapla
-    total_price = sum(item.quantity * item.price for item in cart_items)
-
-    # Müşterinin bütçesini al
-    budget = request.user.budget
-
-
-    return render(request, 'view_cart.html', {'cart_items': cart_items, 'total_price': total_price, 'budget': budget})
+    return render(request, 'view_cart.html', {'cart_items': cart_items})
 
 
 from django.contrib.auth.decorators import login_required
@@ -509,7 +499,7 @@ from django.contrib.auth.decorators import login_required
 @login_required
 def update_cart_item(request, item_id):
     if request.method == 'POST':
-        cart_item = get_object_or_404(CartItem, id=item_id, cart__customer=request.user, cart__is_active=True)
+        cart_item = get_object_or_404(CartItem, id=item_id, cart_customer=request.user, cart_is_active=True)
         new_quantity = int(request.POST.get('quantity', 1))
 
         # Maksimum 5 ürün limiti
@@ -561,12 +551,6 @@ from .models import Cart, CartItem, Order
 
 from django.contrib.auth.decorators import login_required
 
-from django.db import transaction
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from datetime import datetime
-from .models import Cart, CartItem, Order, Product
-
 @login_required
 def order_checkout(request):
     if request.method == 'POST':
@@ -609,7 +593,17 @@ def order_checkout(request):
             # Kullanıcıya bilgilendirme mesajı gönder
             messages.success(
                 request,
-                f"Siparişiniz başarıyla oluşturuldu!"
+                f"Siparişiniz başarıyla oluşturuldu! {total_price} TRY bakiyenizden düşüldü. "
+                "Siparişiniz onaylanana kadar beklemede kalacaktır."
+            )
+            print(request.user.customer_type)
+            Log.objects.create(
+                customer_id=request.user.id,
+                log_type='Bilgilendirme',
+                customer_type=request.user.customer_type,
+                product=cart.id,
+                quantity=500,
+                transaction_result='Satın alma başarılı'
             )
 
             # Checkout zamanı sıfırla
@@ -700,6 +694,18 @@ def edit_product(request, product_id):
     return render(request, 'edit_product.html', {'product': product})
 
 
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import get_object_or_404
+from .models import Order
+
+from django.shortcuts import render, redirect
+from .models import Order
+from django.contrib import messages
+
+from django.shortcuts import render, redirect
+from .models import Order
+from django.contrib import messages
+
 def all_orders(request):
     orders = Order.objects.all()  # Veritabanındaki tüm siparişleri al
     context = {
@@ -722,7 +728,7 @@ def order_detail(request, order_id):
 
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
-from .models import Order
+from .models import Order, Log
 
 from django.db import transaction
 
@@ -733,7 +739,7 @@ from django.db import transaction
 
 @login_required
 def delete_order(request, order_id):
-    from .models import Order  # Yalnızca Order modelini içe aktarın
+    from .models import Order, Customer, Product  # Gerekli modelleri içe aktarın
 
     # Siparişi bulun
     order = get_object_or_404(Order, order_id=order_id)
@@ -757,9 +763,24 @@ from .forms import ProductForm  # Eğer bir form kullanıyorsanız
 
 from .forms import ProductForm
 
-
-def edit_product(request, product_id):
+def purchase_product(request, product_id):
     product = get_object_or_404(Product, product_id=product_id)
+    customer = get_object_or_404(Customer, id=1)  # Örnek, sabit bir müşteri
+    requested_quantity = 5  # Örnek
+
+    # Basit bir stoğa bakma kontrolü:
+    if product.stock < requested_quantity:
+        # Log kaydı oluştur
+        Log.objects.create(
+            customer_id=customer.id,
+            log_type='Hata',
+            customer_type=customer.customer_type,
+            product_name=product.product_name,
+            quantity=requested_quantity,
+            result='Ürün stoğu yetersiz'
+        )
+        messages.error(request, "Stok yetersiz olduğu için satın alma başarısız.")
+        return redirect('admin_dashboard')
 
     if request.method == 'POST':
         form = ProductForm(request.POST, request.FILES, instance=product)
@@ -905,3 +926,21 @@ def get_pending_orders(request):
         ]
     }
     return JsonResponse(data)
+
+    # Stok yeterliyse, satın al
+    product.stock -= requested_quantity
+    product.save()
+    customer.total_spent += product.price * requested_quantity
+    customer.save()
+
+    # Başarılı log kaydı
+    Log.objects.create(
+        customer_id=customer.id,
+        log_type='Bilgilendirme',
+        customer_type=customer.customer_type,
+        product_name=product.product_name,
+        quantity=requested_quantity,
+        result='Satın alma başarılı'
+    )
+    messages.success(request, "Satın alma başarılı.")
+    return redirect('admin_dashboard')
