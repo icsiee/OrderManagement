@@ -39,6 +39,8 @@ urlpatterns = [
 path('completed-orders/', views.completed_orders, name='completed_orders'),
     path('cancelled-orders/', views.cancelled_orders, name='cancelled_orders'),
     path('get-pending-orders/', views.get_pending_orders, name='get_pending_orders'),
+    path('process-order/<int:order_id>/', process_order, name='process_order'),
+    path('create-random-orders/', views.create_random_orders, name='create_random_orders'),
 
     # Diğer URL tanımlamaları
     # Diğer URL desenleri...

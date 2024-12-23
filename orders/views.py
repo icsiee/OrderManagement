@@ -161,7 +161,6 @@ def admin_dashboard(request):
     # Tüm siparişleri al
     orders = Order.objects.filter(order_status='Pending')
 
-    orders = Order.objects.select_related('customer', 'product').all()
     logs=Log.objects.all()
     # Sipariş detaylarını işlemek için bir liste oluştur
     order_list = []
@@ -517,7 +516,7 @@ def remove_cart_item(request, item_id):
     return redirect('view_cart')
 
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from django.contrib.auth.decorators import login_required
 
@@ -593,8 +592,7 @@ def order_checkout(request):
             # Kullanıcıya bilgilendirme mesajı gönder
             messages.success(
                 request,
-                f"Siparişiniz başarıyla oluşturuldu! {total_price} TRY bakiyenizden düşüldü. "
-                "Siparişiniz onaylanana kadar beklemede kalacaktır."
+                f"Siparişiniz başarıyla oluşturuldu!"
             )
             print(request.user.customer_type)
             Log.objects.create(
@@ -803,59 +801,75 @@ from django.contrib import messages
 
 from django.http import JsonResponse
 from django.db import transaction
+from django.http import JsonResponse
+from django.db import transaction
 
-@transaction.atomic
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import F
+
+
+@csrf_exempt
 def process_order(request, order_id):
     try:
-        # Siparişi al
-        order = Order.objects.select_related('product', 'customer').get(order_id=order_id)
-
-        if order.order_status != 'Pending':
-            return JsonResponse({'message': 'Sipariş zaten işlenmiş.'})
-
-        product = order.product
+        order = Order.objects.select_related('customer', 'product').get(order_id=order_id)
         customer = order.customer
+        product = order.product
+        quantity = order.quantity
 
-        if order.quantity > product.stock:
+        # Stok miktarını veritabanında atomik olarak güncelle
+        product.stock = F('stock') - quantity
+        product.save()
+
+        # Güncellenen stok değerini veritabanından al
+        product.refresh_from_db()
+
+        # Negatif stok kontrolü
+        if product.stock < 0:
+            raise ValueError("Ürün için yeterli stok yok")
+
+        # Stoğu kontrol et
+        if product.stock < order.quantity:
             order.order_status = 'Cancelled'
-            order.save()
-            return JsonResponse({'message': 'Yetersiz stok, sipariş iptal edildi.'})
-
-        total_cost = order.quantity * product.price
-        if customer.budget < total_cost:
+            result = "Stok Yetersiz"
+        # Bütçeyi kontrol et
+        elif customer.budget < order.total_price:
             order.order_status = 'Cancelled'
-            order.save()
-            return JsonResponse({'message': 'Yetersiz bütçe, sipariş iptal edildi.'})
+            result = "Bütçe Yetersiz"
+        else:
+            # Siparişi tamamlama
+            product.stock = F('stock') - order.quantity
+            customer.budget = F('budget') - order.total_price
+            order.order_status = 'Completed'
+            result = "Sipariş Tamamlandı"
 
-        # Güncelleme işlemleri
-        product.stock -= order.quantity
-        customer.budget -= total_cost
-        customer.total_spent += total_cost
-        order.order_status = 'Completed'
-
-        # Veritabanını kaydet
+        # Değişiklikleri kaydet
         product.save()
         customer.save()
         order.save()
 
-        # Log kaydı
+        # Log kaydet
         Log.objects.create(
-            customer=customer,
-            order=order,
-            log_type='Order Processed',
-            log_details=f"Order {order.order_id} processed successfully."
+            customer_id=customer.id,
+            log_type='Bilgilendirme',
+            customer_type=customer.customer_type,
+            product=product.product_name,
+            quantity=order.quantity,
+            transaction_result=result
         )
 
-        return JsonResponse({'message': 'Sipariş başarıyla tamamlandı, stok ve bütçe güncellendi.'})
+        return JsonResponse({'status': order.order_status})
     except Order.DoesNotExist:
-        return JsonResponse({'message': 'Sipariş bulunamadı.'})
-    except Exception as e:
-        return JsonResponse({'message': f'Hata: {str(e)}'})
-
+        return JsonResponse({'error': 'Order not found'}, status=404)
 
 
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from .models import Order, Product, Customer
+
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from django.db import transaction
 from .models import Order, Product, Customer
 
 def complete_order(request, order_id):
@@ -895,7 +909,9 @@ def complete_order(request, order_id):
 
 @login_required
 def completed_orders(request):
-    orders = Order.objects.filter(order_status='Completed')
+    orders = Order.objects.select_related('customer', 'product').filter(order_status='Completed')
+    for order in orders:
+        print(order.customer.customer_name)  # Burada müşteri adını kontrol edebilirsiniz.
     return render(request, 'completed_orders.html', {'orders': orders})
 
 
@@ -908,39 +924,64 @@ from django.http import JsonResponse
 from .models import Order
 
 def get_pending_orders(request):
-    orders = Order.objects.filter(order_status='Pending')
-    data = {
-        'orders': [
-            {
-                'order_id': order.order_id,
-                'customer_name': order.customer.customer_name,
-                'product_name': order.product.product_name,
-                'quantity': order.quantity,
-                'total_price': order.total_price,
-                'priority_base': order.priority_base,
-                'waiting_time_display': order.waiting_time_display,
-                'priority_score': order.priority_score,
-                'customer_type': order.customer.customer_type,
-            }
-            for order in orders
-        ]
-    }
-    return JsonResponse(data)
-
-    # Stok yeterliyse, satın al
-    product.stock -= requested_quantity
-    product.save()
-    customer.total_spent += product.price * requested_quantity
-    customer.save()
-
-    # Başarılı log kaydı
-    Log.objects.create(
-        customer_id=customer.id,
-        log_type='Bilgilendirme',
-        customer_type=customer.customer_type,
-        product_name=product.product_name,
-        quantity=requested_quantity,
-        result='Satın alma başarılı'
+    # Sadece "Pending" siparişleri alıyoruz ve gerekli verileri JSON formatında döndürüyoruz
+    pending_orders = Order.objects.filter(order_status='Pending').values(
+        'order_id', 'customer__customer_name', 'product__product_name', 'quantity', 'total_price', 'order_date', 'order_status'
     )
-    messages.success(request, "Satın alma başarılı.")
+    orders_list = list(pending_orders)  # QuerySet'i listeye çeviriyoruz
+    return JsonResponse({'orders': orders_list})
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Customer, Product, Order
+import random
+from datetime import datetime
+
+import random
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Order, Product, Customer
+
+import random
+from django.utils import timezone  # Doğru timezone kütüphanesi
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Order, Product, Customer
+
+def create_random_orders(request):
+    # Veritabanından tüm müşterileri ve ürünleri al
+    customers = Customer.objects.all()
+    products = Product.objects.all()
+
+    # Eğer müşteri veya ürün yoksa hata mesajı ver
+    if not customers.exists():
+        messages.error(request, "Rastgele sipariş oluşturmak için en az bir müşteri gereklidir.")
+        return redirect('admin_dashboard')
+    if not products.exists():
+        messages.error(request, "Rastgele sipariş oluşturmak için en az bir ürün gereklidir.")
+        return redirect('admin_dashboard')
+
+    # Rastgele 20-30 sipariş oluştur
+    num_orders = random.randint(20, 30)
+    for _ in range(num_orders):
+        # Rastgele bir müşteri ve ürün seç
+        customer = random.choice(customers)
+        product = random.choice(products)
+
+        # Rastgele miktar belirle
+        quantity = random.randint(1, 5)  # 1 ile 5 arasında miktar
+        total_price = product.price * quantity
+
+        # Sipariş oluştur
+        Order.objects.create(
+            customer=customer,
+            product=product,
+            quantity=quantity,
+            total_price=total_price,
+            order_date=timezone.now(),  # Hata burada düzeltiliyor
+            order_status="Pending"  # Durumu "Pending" olarak ayarla
+        )
+
+    # Başarı mesajı ekle
+    messages.success(request, f"{num_orders} adet rastgele sipariş başarıyla oluşturuldu.")
     return redirect('admin_dashboard')
