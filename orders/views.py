@@ -818,3 +818,4 @@ def purchase_product(request, product_id):
     )
     messages.success(request, "Satın alma başarılı.")
     return redirect('admin_dashboard')
+
