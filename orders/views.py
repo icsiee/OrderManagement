@@ -809,58 +809,78 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db.models import F
 
 
+from django.db import transaction
+from django.db.models import F
+from django.http import JsonResponse
+from orders.models import Order, Log, Product, Customer
+
+from django.db import transaction
+from django.db.models import F
+from django.http import JsonResponse
+from orders.models import Order, Log, Product, Customer
+
+
 @csrf_exempt
 def process_order(request, order_id):
     try:
+        # Siparişi alın
         order = Order.objects.select_related('customer', 'product').get(order_id=order_id)
+
+        # Eğer siparişin durumu 'Completed' değilse, 'Cancelled' olarak güncelle
+        if order.order_status != 'Completed':
+            order.order_status = 'Cancelled'
+            order.save()
+
         customer = order.customer
         product = order.product
         quantity = order.quantity
+        total_price = order.total_price
 
-        # Stok miktarını veritabanında atomik olarak güncelle
-        product.stock = F('stock') - quantity
-        product.save()
+        # İşlemleri atomik bir blok içinde gerçekleştir (transaction.atomic)
+        with transaction.atomic():
+            # Veritabanından en güncel değerleri alın
+            product.refresh_from_db()
+            customer.refresh_from_db()
 
-        # Güncellenen stok değerini veritabanından al
-        product.refresh_from_db()
+            # Stok kontrolü
+            if product.stock < quantity:
+                order.order_status = 'Cancelled'
+                result = "Stok Yetersiz"
+            # Bütçe kontrolü
+            elif customer.budget < total_price:
+                order.order_status = 'Cancelled'
+                result = "Bütçe Yetersiz"
+            else:
+                # Siparişi tamamlama
+                product.stock -= quantity
+                customer.budget -= total_price
+                customer.total_spent += total_price
+                order.order_status = 'Completed'
+                result = "Sipariş Tamamlandı"
 
-        # Negatif stok kontrolü
-        if product.stock < 0:
-            raise ValueError("Ürün için yeterli stok yok")
+                # Değişiklikleri kaydet
+                product.save()
+                customer.save()
+                order.save()
 
-        # Stoğu kontrol et
-        if product.stock < order.quantity:
-            order.order_status = 'Cancelled'
-            result = "Stok Yetersiz"
-        # Bütçeyi kontrol et
-        elif customer.budget < order.total_price:
-            order.order_status = 'Cancelled'
-            result = "Bütçe Yetersiz"
-        else:
-            # Siparişi tamamlama
-            product.stock = F('stock') - order.quantity
-            customer.budget = F('budget') - order.total_price
-            order.order_status = 'Completed'
-            result = "Sipariş Tamamlandı"
-
-        # Değişiklikleri kaydet
-        product.save()
-        customer.save()
-        order.save()
-
-        # Log kaydet
+        # Log kaydı
         Log.objects.create(
             customer_id=customer.id,
             log_type='Bilgilendirme',
             customer_type=customer.customer_type,
             product=product.product_name,
-            quantity=order.quantity,
+            quantity=quantity,
             transaction_result=result
         )
 
-        return JsonResponse({'status': order.order_status})
+        return JsonResponse({'status': order.order_status, 'result': result})
+
     except Order.DoesNotExist:
         return JsonResponse({'error': 'Order not found'}, status=404)
+    except Exception as e:
+        # Beklenmedik bir hata durumunda detayları logla ve döndür
+        print(f"Unexpected Error: {e}")
+        return JsonResponse({'error': 'An unexpected error occurred', 'details': str(e)}, status=500)
 
 
 from django.http import JsonResponse
@@ -872,6 +892,11 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from .models import Order, Product, Customer
 
+from django.db import transaction
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from .models import Product, Order
+
 def complete_order(request, order_id):
     # Parametreleri al
     quantity = request.GET.get('quantity')
@@ -882,28 +907,28 @@ def complete_order(request, order_id):
         return JsonResponse({'message': 'Geçersiz parametreler.'}, status=400)
 
     quantity = int(quantity)
-    product = get_object_or_404(Product, id=product_id)
-    order = get_object_or_404(Order, order_id=order_id)
-    customer = order.customer
+    product = get_object_or_404(Product, product_id=product_id)  # Ürün ID ile ürünü al
+    order = get_object_or_404(Order, order_id=order_id)  # Sipariş ID ile siparişi al
+    customer = order.customer  # Siparişi veren müşteri
 
     # Stok kontrolü ve bütçe işlemleri
-    if product.stock >= quantity:
-        if customer.budget >= order.total_price:
+    if product.stock >= quantity:  # Stok yeterli mi?
+        if customer.budget >= order.total_price:  # Bütçe yeterli mi?
             # Sipariş işlemleri
-            with transaction.atomic():
-                product.stock -= quantity
-                product.save()
-                customer.budget -= order.total_price
-                customer.save()
-                order.order_status = 'Completed'
-                order.save()
+            with transaction.atomic():  # Veritabanı işlemleri atomik olarak yapılacak
+                product.stock -= quantity  # Stoktan sipariş edilen miktar düşülür
+                product.save()  # Ürün güncellenir
+                customer.budget -= order.total_price  # Müşterinin bütçesinden sipariş tutarı düşülür
+                customer.save()  # Müşteri kaydı güncellenir
+                order.order_status = 'Completed'  # Sipariş durumu "Tamamlandı" olarak güncellenir
+                order.save()  # Sipariş kaydı güncellenir
                 return JsonResponse({'message': 'Sipariş başarıyla tamamlandı, stok ve bütçe güncellendi.'})
         else:
-            order.order_status = 'Cancelled'
+            order.order_status = 'Cancelled'  # Bütçe yetersizse sipariş iptal edilir
             order.save()
             return JsonResponse({'message': 'Bütçe yetersiz, sipariş iptal edildi.'})
     else:
-        order.order_status = 'Cancelled'
+        order.order_status = 'Cancelled'  # Stok yetersizse sipariş iptal edilir
         order.save()
         return JsonResponse({'message': 'Stok yetersiz, sipariş iptal edildi.'})
 
@@ -936,11 +961,6 @@ from django.contrib import messages
 from .models import Customer, Product, Order
 import random
 from datetime import datetime
-
-import random
-from django.contrib import messages
-from django.shortcuts import redirect
-from .models import Order, Product, Customer
 
 import random
 from django.utils import timezone  # Doğru timezone kütüphanesi
@@ -985,3 +1005,24 @@ def create_random_orders(request):
     # Başarı mesajı ekle
     messages.success(request, f"{num_orders} adet rastgele sipariş başarıyla oluşturuldu.")
     return redirect('admin_dashboard')
+
+# views.py
+from django.http import JsonResponse
+from orders.models import Order
+
+def delete_pending_orders(request):
+    if request.method == "POST":
+        try:
+            deleted_count, _ = Order.objects.filter(order_status='Pending').delete()
+            return JsonResponse({"success": True, "message": f"{deleted_count} pending orders deleted."})
+        except Exception as e:
+            return JsonResponse({"success": False, "message": str(e)})
+    else:
+        return JsonResponse({"success": False, "message": "Invalid request method."})
+
+from django.http import JsonResponse
+from .models import Customer
+
+from django.http import JsonResponse
+from .models import Customer
+

@@ -41,6 +41,8 @@ path('completed-orders/', views.completed_orders, name='completed_orders'),
     path('get-pending-orders/', views.get_pending_orders, name='get_pending_orders'),
     path('process-order/<int:order_id>/', process_order, name='process_order'),
     path('create-random-orders/', views.create_random_orders, name='create_random_orders'),
+path('delete-pending-orders/', views.delete_pending_orders, name='delete_pending_orders'),
+    path('refresh-customer-list/', views.refresh_customer_list, name='refresh_customer_list'),
 
     # Diğer URL tanımlamaları
     # Diğer URL desenleri...
