@@ -91,11 +91,12 @@
     <a href="{% url 'cancelled_orders' %}" class="btn btn-secondary">
         <i class="fas fa-times-circle"></i> Reddedilmiş Siparişler
     </a>
+<!-- Listeyi Temizle Butonu -->
+<button id="clear-list" class="btn btn-warning">
+    <i class="fas fa-eraser"></i> Listeyi Temizle
+</button>
 
-    <!-- Listeyi Temizle Butonu -->
-    <button id="clear-list" class="btn btn-warning">
-        <i class="fas fa-trash-alt"></i> Listeyi Temizle
-    </button>
+
            <a href="{% url 'create_random_orders' %}" class="btn btn-success">
     <i class="bi bi-plus-circle"></i> Rastgele Siparişler Oluştur
 </a>
@@ -156,128 +157,139 @@
         </table>
     </div>
 
-    <script>
-        // Update waiting time and priority
-        function updateWaitingAndPriority() {
-            const rows = document.querySelectorAll('tbody tr'); // Select table rows
-
-            rows.forEach(row => {
-                const waitingTimeCell = row.querySelector('.waiting-time');
-                const priorityScoreCell = row.querySelector('.priority-score');
-
-                // Increment waiting time
-                let waitingTime = parseInt(waitingTimeCell.innerText, 10);
-                waitingTime += 1;
-                waitingTimeCell.innerText = waitingTime;
-
-                // Update priority score
-                const basePriority = parseFloat(waitingTimeCell.dataset.priorityBase);
-                const newPriorityScore = basePriority + (waitingTime * 0.5);
-                priorityScoreCell.innerText = newPriorityScore.toFixed(2);
-            });
-        }
-
-
-
-
-        // Update waiting time and priority every second
-        setInterval(updateWaitingAndPriority, 1000);
-        // Listeyi temizlemek ve güncellemek için AJAX fonksiyonu
-function refreshPendingOrders() {
-    fetch('/get-pending-orders/') // Backend'de bu endpoint'i tanımlayacağız
-        .then(response => response.json())
-        .then(data => {
-            const tableBody = document.getElementById('orders-table-body');
-            tableBody.innerHTML = ''; // Tabloyu temizle
-
-            data.orders.forEach(order => {
-                // Yeni satırları oluştur ve tabloya ekle
-                const row = `
-                    <tr class="${order.customer_type === 'Premium' ? 'premium-customer' : 'standard-customer'}" data-order-id="${order.order_id}">
-                        <td><a href="/order-detail/${order.order_id}/">${order.order_id}</a></td>
-                        <td>${order.customer_name}</td>
-                        <td>${order.product_name}</td>
-                        <td>${order.quantity}</td>
-                        <td>${order.total_price}</td>
-                        <td class="waiting-time" data-priority-base="${order.priority_base}">
-                            ${order.waiting_time_display}
-                        </td>
-                        <td class="priority-score">
-                            ${parseFloat(order.priority_score).toFixed(2)}
-                        </td>
-                        <td class="status-pending">
-                            <span class="status-pending">Pending</span>
-                        </td>
-                        <td>
-                            <a href="/delete-order/${order.order_id}/" class="btn btn-danger btn-sm" onclick="return confirm('Bu siparişi silmek istediğinizden emin misiniz?');">Sil</a>
-                        </td>
-                    </tr>
-                `;
-                tableBody.innerHTML += row;
-            });
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-document.getElementById('clear-list').addEventListener('click', function () {
-    fetch('/delete-pending-orders/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': '{{ csrf_token }}',
-        },
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert(data.message);
-            refreshPendingOrders(); // Tablonun güncellenmesi için mevcut fonksiyonu çağır
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => console.error('Error:', error));
-});
-
-    </script>
 <script>
-document.getElementById('process-orders').addEventListener('click', function () {
-    const rows = document.querySelectorAll('#orders-table-body tr');
-    rows.forEach((row, index) => {
-        setTimeout(() => {
-            row.classList.add('animating'); // Animasyonu başlat
+    // Update waiting time and priority
+    function updateWaitingAndPriority() {
+        const rows = document.querySelectorAll('tbody tr'); // Select table rows
 
-            // AJAX ile backend'e sipariş işleme isteği gönder
-            const orderId = row.dataset.orderId;
-            fetch(`/process-order/${orderId}/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}',
-                },
-            })
+        rows.forEach(row => {
+            const waitingTimeCell = row.querySelector('.waiting-time');
+            const priorityScoreCell = row.querySelector('.priority-score');
+
+            // Increment waiting time
+            let waitingTime = parseInt(waitingTimeCell.innerText, 10);
+            waitingTime += 1;
+            waitingTimeCell.innerText = waitingTime;
+
+            // Update priority score
+            const basePriority = parseFloat(waitingTimeCell.dataset.priorityBase);
+            const newPriorityScore = basePriority + (waitingTime * 0.5);
+            priorityScoreCell.innerText = newPriorityScore.toFixed(2);
+        });
+    }
+
+    // Update waiting time and priority every second
+    setInterval(updateWaitingAndPriority, 1000);
+
+    // Listeyi temizlemek ve güncellemek için AJAX fonksiyonu
+    function refreshPendingOrders() {
+        fetch('/get-pending-orders/') // Backend'de bu endpoint'i tanımlayacağız
             .then(response => response.json())
             .then(data => {
-                // Sipariş durumu güncelle
-                const statusCell = row.querySelector('.status-pending');
-                if (data.status === 'Completed') {
-                    statusCell.classList.remove('status-pending');
-                    statusCell.classList.add('status-completed');
-                    statusCell.innerHTML = '<span class="status-completed">Completed</span>';
-                } else if (data.status === 'Cancelled') {
-                    statusCell.classList.remove('status-pending');
-                    statusCell.classList.add('status-cancelled');
-                    statusCell.innerHTML = '<span class="status-cancelled">Cancelled</span>';
+                const tableBody = document.getElementById('orders-table-body');
+                tableBody.innerHTML = ''; // Tabloyu temizle
+
+                if (data.success && data.pending_orders.length > 0) {
+                    data.pending_orders.forEach(order => {
+                        // Yeni satırları oluştur ve tabloya ekle
+                        const row = `
+                            <tr class="${order.customer_type === 'Premium' ? 'premium-customer' : 'standard-customer'}" data-order-id="${order.order_id}">
+                                <td><a href="/order-detail/${order.order_id}/">${order.order_id}</a></td>
+                                <td>${order.customer_name}</td>
+                                <td>${order.product_name}</td>
+                                <td>${order.quantity}</td>
+                                <td>${order.total_price}</td>
+                                <td class="waiting-time" data-priority-base="${order.priority_base}">
+                                    ${order.waiting_time_display}
+                                </td>
+                                <td class="priority-score">
+                                    ${parseFloat(order.priority_score).toFixed(2)}
+                                </td>
+                                <td class="status-pending">
+                                    <span class="status-pending">Pending</span>
+                                </td>
+                                <td>
+                                    <a href="/delete-order/${order.order_id}/" class="btn btn-danger btn-sm" onclick="return confirm('Bu siparişi silmek istediğinizden emin misiniz?');">Sil</a>
+                                </td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                    });
+                } else {
+                    // Eğer pending sipariş yoksa mesaj göster
+                    tableBody.innerHTML = '<tr><td colspan="9">Liste temizlendi.</td></tr>';
                 }
-                row.classList.remove('animating'); // Animasyonu bitir
             })
-            .catch(error => console.error('Error:', error));
-        }, index * 1000); // Her sipariş için 1 saniye gecikme
+            .catch(error => console.error('Error:', error)); // Hata durumunda konsola yazdır
+    }
+
+    // Listeyi Temizle butonuna tıklanması halinde
+    document.getElementById('clear-list').addEventListener('click', function () {
+        refreshPendingOrders(); // Pending siparişlerini yenile
     });
-});
 
+    // Silme işlemi için AJAX fonksiyonu
+    function deletePendingOrders() {
+        fetch('/delete-pending-orders/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                refreshPendingOrders(); // Tablonun güncellenmesi için mevcut fonksiyonu çağır
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => console.error('Error:', error));
+    }
 
+    // Listeyi temizle butonuna tıklama işlemi
+    document.getElementById('clear-list').addEventListener('click', function () {
+        deletePendingOrders(); // Pending siparişlerini temizle
+    });
 
+    // Siparişleri işleme butonu
+    document.getElementById('process-orders').addEventListener('click', function () {
+        const rows = document.querySelectorAll('#orders-table-body tr');
+        rows.forEach((row, index) => {
+            setTimeout(() => {
+                row.classList.add('animating'); // Animasyonu başlat
+
+                // AJAX ile backend'e sipariş işleme isteği gönder
+                const orderId = row.dataset.orderId;
+                fetch(`/process-order/${orderId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Sipariş durumu güncelle
+                    const statusCell = row.querySelector('.status-pending');
+                    if (data.status === 'Completed') {
+                        statusCell.classList.remove('status-pending');
+                        statusCell.classList.add('status-completed');
+                        statusCell.innerHTML = '<span class="status-completed">Completed</span>';
+                    } else if (data.status === 'Cancelled') {
+                        statusCell.classList.remove('status-pending');
+                        statusCell.classList.add('status-cancelled');
+                        statusCell.innerHTML = '<span class="status-cancelled">Cancelled</span>';
+                    }
+                    row.classList.remove('animating'); // Animasyonu bitir
+                })
+                .catch(error => console.error('Error:', error));
+            }, index * 1000); // Her sipariş için 1 saniye gecikme
+        });
+    });
 </script>
+
 
 </body>
 

@@ -1,13 +1,4 @@
 from django.views.decorators.csrf import csrf_exempt
-
-from .forms import RegisterForm
-
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from .forms import RegisterForm
-
-from django.shortcuts import render, redirect
-from django.contrib import messages
 from .forms import RegisterForm
 
 def register(request):
@@ -53,7 +44,6 @@ def login_view(request):
 
     return render(request, 'login.html')
 
-# Admin Giriş (Login) fonksiyonu
 
 # Ana sayfa (Home) fonksiyonu
 def home(request):
@@ -132,7 +122,6 @@ def admin_login(request):
 
 
 from django.contrib.auth.decorators import login_required
-from .models import Product, Cart
 
 @csrf_exempt
 @login_required
@@ -220,9 +209,6 @@ def edit_customer(request, customer_id):
 
     return render(request, 'edit_customer.html', {'form': form})
 
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
-from .models import Customer
 
 def delete_customer(request, customer_id):
     customer = get_object_or_404(Customer, id=customer_id)
@@ -248,7 +234,6 @@ def add_customer(request):
     return render(request, 'add_customer.html', {'form': form})
 
 from django.contrib.auth import logout
-from django.shortcuts import redirect
 
 def logout_view(request):
     logout(request)  # Oturumu sonlandır
@@ -256,20 +241,8 @@ def logout_view(request):
 
 
 # Random Müşteri Üretme Fonksiyonu
-import random
-from faker import Faker
-from django.contrib.auth.hashers import make_password  # make_password fonksiyonunu ekledik
-from django.contrib import messages
-from django.shortcuts import redirect
-from .models import Customer
-
-# Random Müşteri Üretme Fonksiyonu
 from django.contrib.auth.hashers import make_password
 from faker import Faker
-import random
-from django.contrib import messages
-from django.shortcuts import redirect
-from .models import Customer
 
 def generate_random_customers(request):
     fake = Faker()
@@ -313,10 +286,6 @@ def generate_random_customers(request):
     messages.success(request, f"{num_customers} yeni müşteri başarıyla oluşturuldu.")
     return redirect('admin_dashboard')
 
-from django.contrib import messages
-from django.shortcuts import redirect
-from .models import Customer
-
 # Tüm Kullanıcıları Silme View
 def delete_all_customers(request):
     if request.user.is_superuser:  # Yalnızca superuser erişebilir
@@ -331,15 +300,6 @@ def delete_all_customers(request):
 
     return redirect('admin_dashboard')  # Admin dashboard'a geri yönlendir
 
-
-# Ürün ekleme işlemi
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from .models import Product
-
-from django.shortcuts import redirect
-from django.contrib import messages
-from .models import Product
 
 def add_product(request):
     if request.method == 'POST':
@@ -475,8 +435,6 @@ def add_to_cart(request):
         messages.success(request, f"{product.product_name} başarıyla sepete eklendi.")
 
         return redirect('customer_dashboard')  # Sepet sayfasına yönlendir
-
-
 
 
 from django.contrib.auth.decorators import login_required
@@ -666,8 +624,6 @@ def delete_all_products(request):
     messages.success(request, "Tüm ürünler başarıyla silindi.")
     return redirect("admin_dashboard")  # Admin dashboard'unuzun URL ismini yazın
 
-from .models import Product
-
 
 def edit_product(request, product_id):
     product = get_object_or_404(Product, pk=product_id)
@@ -692,18 +648,6 @@ def edit_product(request, product_id):
     return render(request, 'edit_product.html', {'product': product})
 
 
-from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import get_object_or_404
-from .models import Order
-
-from django.shortcuts import render, redirect
-from .models import Order
-from django.contrib import messages
-
-from django.shortcuts import render, redirect
-from .models import Order
-from django.contrib import messages
-
 def all_orders(request):
     orders = Order.objects.all()  # Veritabanındaki tüm siparişleri al
     context = {
@@ -711,8 +655,6 @@ def all_orders(request):
     }
     return render(request, 'all_orders.html', context)
 
-from django.shortcuts import render, get_object_or_404
-from .models import Order
 
 def order_detail(request, order_id):
     # Siparişi ID'sine göre al
@@ -724,16 +666,8 @@ def order_detail(request, order_id):
     }
     return render(request, 'order_detail.html', context)
 
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
-from .models import Order, Log
 
-from django.db import transaction
-
-from django.shortcuts import get_object_or_404, redirect
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db import transaction
 
 @login_required
 def delete_order(request, order_id):
@@ -753,11 +687,6 @@ def delete_order(request, order_id):
     # Admin paneline yönlendir
     return redirect('admin_dashboard')
 
-
-from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib import messages
-from .models import Product
-from .forms import ProductForm  # Eğer bir form kullanıyorsanız
 
 from .forms import ProductForm
 
@@ -794,29 +723,9 @@ def purchase_product(request, product_id):
 
     return render(request, 'edit_product.html', {'form': form, 'product': product})
 
-from .models import Order, Product, Customer, Log
 
-from django.shortcuts import redirect
-from django.contrib import messages
-
-from django.http import JsonResponse
-from django.db import transaction
-from django.http import JsonResponse
-from django.db import transaction
-
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.db.models import F
 
-
-from django.db import transaction
-from django.db.models import F
-from django.http import JsonResponse
-from orders.models import Order, Log, Product, Customer
-
-from django.db import transaction
-from django.db.models import F
-from django.http import JsonResponse
 from orders.models import Order, Log, Product, Customer
 
 
@@ -883,19 +792,8 @@ def process_order(request, order_id):
         return JsonResponse({'error': 'An unexpected error occurred', 'details': str(e)}, status=500)
 
 
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from .models import Order, Product, Customer
-
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from django.db import transaction
-from .models import Order, Product, Customer
 
 from django.db import transaction
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from .models import Product, Order
 
 def complete_order(request, order_id):
     # Parametreleri al
@@ -945,8 +843,6 @@ def cancelled_orders(request):
     orders = Order.objects.filter(order_status='Cancelled')
     return render(request, 'cancelled_orders.html', {'orders': orders})
 
-from django.http import JsonResponse
-from .models import Order
 
 def get_pending_orders(request):
     # Sadece "Pending" siparişleri alıyoruz ve gerekli verileri JSON formatında döndürüyoruz
@@ -957,9 +853,7 @@ def get_pending_orders(request):
     return JsonResponse({'orders': orders_list})
 
 from django.shortcuts import render, redirect
-from django.contrib import messages
-from .models import Customer, Product, Order
-import random
+
 from datetime import datetime
 
 import random
@@ -982,7 +876,7 @@ def create_random_orders(request):
         return redirect('admin_dashboard')
 
     # Rastgele 20-30 sipariş oluştur
-    num_orders = random.randint(20, 30)
+    num_orders = random.randint(5, 7)
     for _ in range(num_orders):
         # Rastgele bir müşteri ve ürün seç
         customer = random.choice(customers)
@@ -1006,19 +900,34 @@ def create_random_orders(request):
     messages.success(request, f"{num_orders} adet rastgele sipariş başarıyla oluşturuldu.")
     return redirect('admin_dashboard')
 
-# views.py
-from django.http import JsonResponse
-from orders.models import Order
 
-def delete_pending_orders(request):
-    if request.method == "POST":
-        try:
-            deleted_count, _ = Order.objects.filter(order_status='Pending').delete()
-            return JsonResponse({"success": True, "message": f"{deleted_count} pending orders deleted."})
-        except Exception as e:
-            return JsonResponse({"success": False, "message": str(e)})
-    else:
-        return JsonResponse({"success": False, "message": "Invalid request method."})
+from django.shortcuts import get_object_or_404
+from .models import Order
+
+def delete_pending_order(request, order_id):
+    try:
+        # Order'ı al
+        order = get_object_or_404(Order, order_id=order_id)
+
+        # Order'ın durumu 'Pending' mi kontrol et
+        if order.order_status == 'Pending':
+            order.delete()  # Silme işlemi
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Order deleted successfully.'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'Order is not in Pending status.'
+            })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        })
 
 from django.http import JsonResponse
 from .models import Customer
