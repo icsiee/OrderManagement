@@ -453,17 +453,28 @@ def view_cart(request):
 from django.contrib.auth.decorators import login_required
 
 # Sepet öğesi miktarını güncelleme
-@login_required
+# views.py
+from django.shortcuts import get_object_or_404, redirect
+from django.http import JsonResponse
+from .models import CartItem
+
+# views.py
+from django.shortcuts import render, get_object_or_404, redirect
+from .models import CartItem
+
 def update_cart_item(request, item_id):
     if request.method == 'POST':
-        cart_item = get_object_or_404(CartItem, id=item_id, cart_customer=request.user, cart_is_active=True)
-        new_quantity = int(request.POST.get('quantity', 1))
+        item = get_object_or_404(CartItem, id=item_id)
+        new_quantity = int(request.POST.get('quantity'))
 
-        # Maksimum 5 ürün limiti
-        cart_item.quantity = min(new_quantity, 5)
-        cart_item.save()
+        item.quantity = new_quantity
+        item.save()
 
+        # Sepet sayfasına yönlendir
         return redirect('view_cart')
+
+# remove_cart_item, checkout gibi diğer view'lar zaten uygun şekilde çalışacaktır.
+
 
 # Sepet öğesini silme
 @login_required
@@ -876,7 +887,7 @@ def create_random_orders(request):
         return redirect('admin_dashboard')
 
     # Rastgele 20-30 sipariş oluştur
-    num_orders = random.randint(5, 7)
+    num_orders = random.randint(20, 30)
     for _ in range(num_orders):
         # Rastgele bir müşteri ve ürün seç
         customer = random.choice(customers)
