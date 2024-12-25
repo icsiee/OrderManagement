@@ -36,6 +36,22 @@
         .standard-customer {
             background-color: #f8f9fa; /* Açık gri arka plan */
         }
+
+        /* Animasyon için */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animating {
+            animation: slideIn 0.5s ease-in-out;
+        }
     </style>
 </head>
 
@@ -58,10 +74,34 @@
         <!-- Admin işlemleri için butonlar -->
         <div class="mb-4">
             <a href="{% url 'logout' %}" class="btn btn-danger mb-2">Çıkış Yap</a>
-            <a href="{% url 'add_customer' %}" class="btn btn-success mb-2">Yeni Müşteri Ekle</a>
-            <a href="{% url 'generate_random_customers' %}" class="btn btn-primary mb-2">Random Kullanıcı Üret</a>
-            <a href="{% url 'delete_all_customers' %}" class="btn btn-warning mb-2">Tüm Kullanıcıları Sil</a>
         </div>
+
+       <div class="mb-4">
+    <!-- Siparişleri Onayla Butonu -->
+    <button id="process-orders" class="btn btn-success">
+        <i class="fas fa-check"></i> Siparişleri Onayla
+    </button>
+
+    <!-- Onaylanmış Siparişler Sayfasına Yönlendiren Buton -->
+    <a href="{% url 'completed_orders' %}" class="btn btn-primary">
+        <i class="fas fa-thumbs-up"></i> Onaylanmış Siparişler
+    </a>
+
+    <!-- Reddedilmiş Siparişler Sayfasına Yönlendiren Buton -->
+    <a href="{% url 'cancelled_orders' %}" class="btn btn-secondary">
+        <i class="fas fa-times-circle"></i> Reddedilmiş Siparişler
+    </a>
+
+    <!-- Listeyi Temizle Butonu -->
+    <button id="clear-list" class="btn btn-warning">
+        <i class="fas fa-trash-alt"></i> Listeyi Temizle
+    </button>
+           <a href="{% url 'create_random_orders' %}" class="btn btn-success">
+    <i class="bi bi-plus-circle"></i> Rastgele Siparişler Oluştur
+</a>
+
+</div>
+
 
         <h2>Tüm Siparişler:</h2>
         <table class="table">
@@ -69,7 +109,8 @@
                 <tr>
                     <th>Sipariş ID</th>
                     <th>Müşteri</th>
-                    <th>Müşteri Türü</th> <!-- Müşteri türü kolonu -->
+                    <th>Sipariş Adı</th>
+
                     <th>Adet</th>
                     <th>Toplam Fiyat</th>
                     <th>Bekleme Süresi (saniye)</th>
@@ -78,20 +119,13 @@
                     <th>İşlemler</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="orders-table-body">
                 {% for order in orders %}
-                <tr class="{% if order.customer.customer_type == 'Premium' %}premium-customer{% else %}standard-customer{% endif %}">
-                    <td>
-                        <a href="{% url 'order_detail' order_id=order.order_id %}">{{ order.order_id }}</a>
-                    </td> <!-- Sipariş ID üzerine tıklanabilir link ekledik -->
+                <tr class="{% if order.customer.customer_type == 'Premium' %}premium-customer{% else %}standard-customer{% endif %}" data-order-id="{{ order.order_id }}">
+                    <td><a href="{% url 'order_detail' order_id=order.order_id %}">{{ order.order_id }}</a></td>
                     <td>{{ order.customer.customer_name }}</td>
-                    <td class="customer-type">
-                        {% if order.customer.customer_type == 'Premium' %}
-                        Premium
-                        {% else %}
-                        Standard
-                        {% endif %}
-                    </td>
+                    <td>{{ order.product.product_name }}</td>
+
                     <td>{{ order.quantity }}</td>
                     <td>{{ order.total_price }}</td>
                     <td class="waiting-time" data-priority-base="{{ order.priority_base }}">
@@ -110,8 +144,8 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{% url 'delete_order' order_id=order.order_id %}"
-                           class="btn btn-danger btn-sm"
+                        <a href="{% url 'delete_order' order_id=order.order_id %}" class="btn btn-danger btn-sm"
+
                            onclick="return confirm('Bu siparişi silmek istediğinizden emin misiniz?');">
                             Sil
                         </a>
@@ -123,32 +157,123 @@
     </div>
 
     <script>
+        // Update waiting time and priority
         function updateWaitingAndPriority() {
-            const rows = document.querySelectorAll('tbody tr'); // Tablo satırlarını seç
+            const rows = document.querySelectorAll('tbody tr'); // Select table rows
 
             rows.forEach(row => {
                 const waitingTimeCell = row.querySelector('.waiting-time');
                 const priorityScoreCell = row.querySelector('.priority-score');
 
-                // Bekleme süresini artır
+                // Increment waiting time
                 let waitingTime = parseInt(waitingTimeCell.innerText, 10);
                 waitingTime += 1;
                 waitingTimeCell.innerText = waitingTime;
 
-                // Öncelik skorunu güncelle
+                // Update priority score
                 const basePriority = parseFloat(waitingTimeCell.dataset.priorityBase);
                 const newPriorityScore = basePriority + (waitingTime * 0.5);
                 priorityScoreCell.innerText = newPriorityScore.toFixed(2);
             });
         }
 
-        // Her 1 saniyede bir güncelleme yap
+
+
+
+        // Update waiting time and priority every second
         setInterval(updateWaitingAndPriority, 1000);
+        // Listeyi temizlemek ve güncellemek için AJAX fonksiyonu
+function refreshPendingOrders() {
+    fetch('/get-pending-orders/') // Backend'de bu endpoint'i tanımlayacağız
+        .then(response => response.json())
+        .then(data => {
+            const tableBody = document.getElementById('orders-table-body');
+            tableBody.innerHTML = ''; // Tabloyu temizle
+
+            data.orders.forEach(order => {
+                // Yeni satırları oluştur ve tabloya ekle
+                const row = `
+                    <tr class="${order.customer_type === 'Premium' ? 'premium-customer' : 'standard-customer'}" data-order-id="${order.order_id}">
+                        <td><a href="/order-detail/${order.order_id}/">${order.order_id}</a></td>
+                        <td>${order.customer_name}</td>
+                        <td>${order.product_name}</td>
+                        <td>${order.quantity}</td>
+                        <td>${order.total_price}</td>
+                        <td class="waiting-time" data-priority-base="${order.priority_base}">
+                            ${order.waiting_time_display}
+                        </td>
+                        <td class="priority-score">
+                            ${parseFloat(order.priority_score).toFixed(2)}
+                        </td>
+                        <td class="status-pending">
+                            <span class="status-pending">Pending</span>
+                        </td>
+                        <td>
+                            <a href="/delete-order/${order.order_id}/" class="btn btn-danger btn-sm" onclick="return confirm('Bu siparişi silmek istediğinizden emin misiniz?');">Sil</a>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        })
+        .catch(error => console.error('Error:', error));
+}
+
+// "Listeyi Temizle" butonuna olay ekle
+document.getElementById('clear-list').addEventListener('click', refreshPendingOrders);
+
     </script>
+<script>
+document.getElementById('process-orders').addEventListener('click', function () {
+    const rows = document.querySelectorAll('#orders-table-body tr');
+    rows.forEach((row, index) => {
+        setTimeout(() => {
+            row.classList.add('animating'); // Animasyonu başlat
+
+            // AJAX ile backend'e sipariş işleme isteği gönder
+            const orderId = row.dataset.orderId;
+            fetch(`/process-order/${orderId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Sipariş durumu güncelle
+                const statusCell = row.querySelector('.status-pending');
+                if (data.status === 'Completed') {
+                    statusCell.classList.remove('status-pending');
+                    statusCell.classList.add('status-completed');
+                    statusCell.innerHTML = '<span class="status-completed">Completed</span>';
+                } else if (data.status === 'Cancelled') {
+                    statusCell.classList.remove('status-pending');
+                    statusCell.classList.add('status-cancelled');
+                    statusCell.innerHTML = '<span class="status-cancelled">Cancelled</span>';
+                }
+                row.classList.remove('animating'); // Animasyonu bitir
+            })
+            .catch(error => console.error('Error:', error));
+        }, index * 1000); // Her sipariş için 1 saniye gecikme
+    });
+});
+</script>
+
+</body>
+
+</html>
+
 
     <!-- Müşteri Listesi -->
     <div class="container">
-        <h2>Müşteri Listesi</h2>
+       <h2>Müşteri Listesi:</h2>
+         <div class="mb-4">
+            <a href="{% url 'add_customer' %}" class="btn btn-success mb-2">Yeni Müşteri Ekle</a>
+            <a href="{% url 'generate_random_customers' %}" class="btn btn-primary mb-2">Random Kullanıcı Üret</a>
+            <a href="{% url 'delete_all_customers' %}" class="btn btn-warning mb-2">Tüm Kullanıcıları Sil</a>
+
+        </div>
         <table class="table table-striped">
             <thead>
                 <tr>

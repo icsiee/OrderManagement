@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from .forms import RegisterForm
+from .forms import RegisterForm, ProductForm
 
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -181,7 +181,8 @@ from .models import Order, Customer, Product
 
 def admin_dashboard(request):
     # Tüm siparişleri al
-    orders = Order.objects.select_related('customer', 'product').all()
+    orders = Order.objects.filter(order_status='Pending')
+
     logs=Log.objects.all()
     # Sipariş detaylarını işlemek için bir liste oluştur
     order_list = []
@@ -286,6 +287,13 @@ from django.shortcuts import redirect
 from .models import Customer
 
 # Random Müşteri Üretme Fonksiyonu
+from django.contrib.auth.hashers import make_password
+from faker import Faker
+import random
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Customer
+
 def generate_random_customers(request):
     fake = Faker()
     num_customers = random.randint(5, 10)  # 5-10 arasında rastgele müşteri sayısı
@@ -293,18 +301,20 @@ def generate_random_customers(request):
 
     # Premium kullanıcıları rastgele seçmek için bu listeyi oluşturuyoruz
     premium_count = 0
+    minimum_premium = 2  # En az 2 premium kullanıcı olmalı
 
     for _ in range(num_customers):
         customer_name = fake.user_name()
         budget = random.uniform(500, 3000)  # 500 ile 3000 arasında rastgele bütçe
         total_spent = 0  # Toplam harcama her zaman 0 olacak
 
-        # Premium kullanıcıları rastgele seçiyoruz, en az 2 tane olmalı
-        if premium_count < 3 and random.choice([True, False]):
+        # Eğer premium sayısı en az 2 değilse, premium yap
+        if premium_count < minimum_premium:
             customer_type = 'Premium'
             premium_count += 1
         else:
-            customer_type = 'Standard'
+            # Eğer premium sayısı 2 veya daha fazlaysa, rastgele premium ya da standard seç
+            customer_type = 'Premium' if random.choice([True, False]) else 'Standard'
 
         # Şifreyi hashle
         hashed_password = make_password('1')  # Şifreyi hashliyoruz
@@ -457,9 +467,7 @@ def add_to_cart(request):
         except Product.DoesNotExist:
             return HttpResponse("Ürün bulunamadı.", status=404)
 
-        # Stoktaki miktarı kontrol et
-        if int(quantity) > product.stock:
-            messages.error(request, f"{product.product_name} için yeterli stok bulunmamaktadır.")
+
             return redirect('customer_dashboard')
 
         # Sepeti oluştur veya aktif sepeti al
@@ -529,7 +537,7 @@ def remove_cart_item(request, item_id):
     return redirect('view_cart')
 
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from django.contrib.auth.decorators import login_required
 
@@ -552,7 +560,7 @@ def checkout(request):
     request.session['checkout_start_time'] = datetime.now().timestamp()
     current_time = datetime.now().timestamp()
     start_time = request.session.get('checkout_start_time', current_time)
-    if (current_time - start_time) > 15:
+    if (current_time - start_time) > 10:
         messages.error(request, "Sipariş süresi doldu. Lütfen tekrar deneyin.")
         return redirect('view_cart')
 
@@ -578,44 +586,34 @@ def order_checkout(request):
             # Sipariş toplamını hesapla
             total_price = sum(item.quantity * item.price for item in cart_items)
 
-            # Kullanıcı bakiyesini kontrol et
-            if request.user.budget < total_price:
-                messages.error(request, "Bakiye yetersiz. Lütfen bakiyenizi güncelleyin.")
+            # 15 saniye kontrolü (örnek)
+            request.session['checkout_start_time'] = datetime.now().timestamp()
+            current_time = datetime.now().timestamp()
+            start_time = request.session.get('checkout_start_time', current_time)
+            if (current_time - start_time) > 15:
+                messages.error(request, "Sipariş süresi doldu. Lütfen tekrar deneyin.")
                 return redirect('view_cart')
 
-            # Stok kontrolü ve güncellemesi
-            for item in cart_items:
-                product = item.product
-                if product.stock >= item.quantity:
-                    product.stock -= item.quantity
-                    product.save()
-                else:
-                    messages.error(request, f"{product.product_name} için yeterli stok bulunmuyor.")
-                    return redirect('checkout')
+            # Veritabanı işlemlerini bir transaction içinde yapalım
+            with transaction.atomic():
+                # Sipariş oluştur ve aktif sepeti pasif yap
+                for item in cart_items:
+                    Order.objects.create(
+                        customer=request.user,
+                        product=item.product,
+                        quantity=item.quantity,
+                        total_price=item.quantity * item.price,
+                        order_status='Pending'  # Başlangıç durumu 'Pending'
+                    )
 
-            # Sipariş oluştur ve aktif sepeti pasif yap
-            for item in cart_items:
-                Order.objects.create(
-                    customer=request.user,
-                    product=item.product,
-                    quantity=item.quantity,
-                    total_price=item.quantity * item.price,
-                    order_status='Pending'  # Başlangıç durumu 'Pending'
-                )
-
-            # Kullanıcının bakiyesinden sipariş tutarını düş
-            request.user.budget -= total_price
-            request.user.save()
-
-            # Sepeti pasif yap
-            cart.is_active = False
-            cart.save()
+                # Sepeti pasif yap
+                cart.is_active = False
+                cart.save()
 
             # Kullanıcıya bilgilendirme mesajı gönder
             messages.success(
                 request,
-                f"Siparişiniz başarıyla oluşturuldu! {total_price} TRY bakiyenizden düşüldü. "
-                "Siparişiniz onaylanana kadar beklemede kalacaktır."
+                f"Siparişiniz başarıyla oluşturuldu!"
             )
             print(request.user.customer_type)
             Log.objects.create(
@@ -759,24 +757,13 @@ def delete_order(request, order_id):
     # Siparişi bulun
     order = get_object_or_404(Order, order_id=order_id)
 
-    # Transaction ile güvenliği sağla
+    # Transaction kullanarak güvenli bir silme işlemi
     with transaction.atomic():
-        # 1. Kullanıcının bütçesine para iadesi yap
-        customer = order.customer
-        refund_amount = order.total_price
-        customer.budget += refund_amount
-        customer.save()
-
-        # 2. Ürünün stoğunu güncelle
-        product = order.product
-        product.stock += order.quantity
-        product.save()
-
-        # 3. Siparişi sil
+        # Siparişi sil
         order.delete()
 
     # Mesaj göster
-    messages.success(request, f"Sipariş ID {order_id} başarıyla silindi. {refund_amount} TRY kullanıcıya iade edildi ve stok güncellendi.")
+    messages.success(request, f"Sipariş ID {order_id} başarıyla silindi.")
 
     # Admin paneline yönlendir
     return redirect('admin_dashboard')
@@ -801,21 +788,208 @@ def purchase_product(request, product_id):
         messages.error(request, "Stok yetersiz olduğu için satın alma başarısız.")
         return redirect('admin_dashboard')
 
-    # Stok yeterliyse, satın al
-    product.stock -= requested_quantity
-    product.save()
-    customer.total_spent += product.price * requested_quantity
-    customer.save()
+    if request.method == 'POST':
+        form = ProductForm(request.POST, request.FILES, instance=product)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Ürün başarıyla güncellendi!')
+            return redirect('admin_dashboard')
+        else:
+            messages.error(request, 'Geçersiz veri girdiniz.')
 
-    # Başarılı log kaydı
-    Log.objects.create(
-        customer_id=customer.id,
-        log_type='Bilgilendirme',
-        customer_type=customer.customer_type,
-        product_name=product.product_name,
-        quantity=requested_quantity,
-        result='Satın alma başarılı'
+    else:
+        form = ProductForm(instance=product)
+
+    return render(request, 'edit_product.html', {'form': form, 'product': product})
+
+from .models import Order, Product, Customer, Log
+
+from django.shortcuts import redirect
+from django.contrib import messages
+
+from django.http import JsonResponse
+from django.db import transaction
+from django.http import JsonResponse
+from django.db import transaction
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.db.models import F
+
+
+@csrf_exempt
+def process_order(request, order_id):
+    try:
+        order = Order.objects.select_related('customer', 'product').get(order_id=order_id)
+        customer = order.customer
+        product = order.product
+        quantity = order.quantity
+
+        # Stok miktarını veritabanında atomik olarak güncelle
+        product.stock = F('stock') - quantity
+        product.save()
+
+        # Güncellenen stok değerini veritabanından al
+        product.refresh_from_db()
+
+        # Negatif stok kontrolü
+        if product.stock < 0:
+            raise ValueError("Ürün için yeterli stok yok")
+
+        # Stoğu kontrol et
+        if product.stock < order.quantity:
+            order.order_status = 'Cancelled'
+            result = "Stok Yetersiz"
+        # Bütçeyi kontrol et
+        elif customer.budget < order.total_price:
+            order.order_status = 'Cancelled'
+            result = "Bütçe Yetersiz"
+        else:
+            # Siparişi tamamlama
+            product.stock = F('stock') - order.quantity
+            customer.budget = F('budget') - order.total_price
+            order.order_status = 'Completed'
+            result = "Sipariş Tamamlandı"
+
+        # Değişiklikleri kaydet
+        product.save()
+        customer.save()
+        order.save()
+
+        # Log kaydet
+        Log.objects.create(
+            customer_id=customer.id,
+            log_type='Bilgilendirme',
+            customer_type=customer.customer_type,
+            product=product.product_name,
+            quantity=order.quantity,
+            transaction_result=result
+        )
+
+        return JsonResponse({'status': order.order_status})
+    except Order.DoesNotExist:
+        return JsonResponse({'error': 'Order not found'}, status=404)
+
+
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from .models import Order, Product, Customer
+
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from django.db import transaction
+from .models import Order, Product, Customer
+
+def complete_order(request, order_id):
+    # Parametreleri al
+    quantity = request.GET.get('quantity')
+    product_id = request.GET.get('product_id')
+
+    # Eğer quantity veya product_id geçerli değilse, hata dön
+    if quantity is None or product_id is None or not quantity.isdigit():
+        return JsonResponse({'message': 'Geçersiz parametreler.'}, status=400)
+
+    quantity = int(quantity)
+    product = get_object_or_404(Product, id=product_id)
+    order = get_object_or_404(Order, order_id=order_id)
+    customer = order.customer
+
+    # Stok kontrolü ve bütçe işlemleri
+    if product.stock >= quantity:
+        if customer.budget >= order.total_price:
+            # Sipariş işlemleri
+            with transaction.atomic():
+                product.stock -= quantity
+                product.save()
+                customer.budget -= order.total_price
+                customer.save()
+                order.order_status = 'Completed'
+                order.save()
+                return JsonResponse({'message': 'Sipariş başarıyla tamamlandı, stok ve bütçe güncellendi.'})
+        else:
+            order.order_status = 'Cancelled'
+            order.save()
+            return JsonResponse({'message': 'Bütçe yetersiz, sipariş iptal edildi.'})
+    else:
+        order.order_status = 'Cancelled'
+        order.save()
+        return JsonResponse({'message': 'Stok yetersiz, sipariş iptal edildi.'})
+
+@login_required
+def completed_orders(request):
+    orders = Order.objects.select_related('customer', 'product').filter(order_status='Completed')
+    for order in orders:
+        print(order.customer.customer_name)  # Burada müşteri adını kontrol edebilirsiniz.
+    return render(request, 'completed_orders.html', {'orders': orders})
+
+
+@login_required
+def cancelled_orders(request):
+    orders = Order.objects.filter(order_status='Cancelled')
+    return render(request, 'cancelled_orders.html', {'orders': orders})
+
+from django.http import JsonResponse
+from .models import Order
+
+def get_pending_orders(request):
+    # Sadece "Pending" siparişleri alıyoruz ve gerekli verileri JSON formatında döndürüyoruz
+    pending_orders = Order.objects.filter(order_status='Pending').values(
+        'order_id', 'customer_customer_name', 'product_product_name', 'quantity', 'total_price', 'order_date', 'order_status'
     )
-    messages.success(request, "Satın alma başarılı.")
-    return redirect('admin_dashboard')
+    orders_list = list(pending_orders)  # QuerySet'i listeye çeviriyoruz
+    return JsonResponse({'orders': orders_list})
 
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Customer, Product, Order
+import random
+from datetime import datetime
+
+import random
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Order, Product, Customer
+
+import random
+from django.utils import timezone  # Doğru timezone kütüphanesi
+from django.contrib import messages
+from django.shortcuts import redirect
+from .models import Order, Product, Customer
+
+def create_random_orders(request):
+    # Veritabanından tüm müşterileri ve ürünleri al
+    customers = Customer.objects.all()
+    products = Product.objects.all()
+
+    # Eğer müşteri veya ürün yoksa hata mesajı ver
+    if not customers.exists():
+        messages.error(request, "Rastgele sipariş oluşturmak için en az bir müşteri gereklidir.")
+        return redirect('admin_dashboard')
+    if not products.exists():
+        messages.error(request, "Rastgele sipariş oluşturmak için en az bir ürün gereklidir.")
+        return redirect('admin_dashboard')
+
+    # Rastgele 20-30 sipariş oluştur
+    num_orders = random.randint(20, 30)
+    for _ in range(num_orders):
+        # Rastgele bir müşteri ve ürün seç
+        customer = random.choice(customers)
+        product = random.choice(products)
+
+        # Rastgele miktar belirle
+        quantity = random.randint(1, 5)  # 1 ile 5 arasında miktar
+        total_price = product.price * quantity
+
+        # Sipariş oluştur
+        Order.objects.create(
+            customer=customer,
+            product=product,
+            quantity=quantity,
+            total_price=total_price,
+            order_date=timezone.now(),  # Hata burada düzeltiliyor
+            order_status="Pending"  # Durumu "Pending" olarak ayarla
+        )
+
+    # Başarı mesajı ekle
+    messages.success(request, f"{num_orders} adet rastgele sipariş başarıyla oluşturuldu.")
+    return redirect('admin_dashboard')

@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from django.contrib import admin
+from .views import process_order  # Add this line
 
 
 urlpatterns = [
@@ -34,7 +35,14 @@ urlpatterns = [
     path('admin_dashboard/all_orders/', views.all_orders, name='all_orders'),  # Yeni URL ekleyin
     path('order/<int:order_id>/', views.order_detail, name='order_detail'),
     path('delete_order/<int:order_id>/', views.delete_order, name='delete_order'),
+    path('complete-order/<int:order_id>/', process_order, name='process_order'),
+path('completed-orders/', views.completed_orders, name='completed_orders'),
+    path('cancelled-orders/', views.cancelled_orders, name='cancelled_orders'),
+    path('get-pending-orders/', views.get_pending_orders, name='get_pending_orders'),
+    path('process-order/<int:order_id>/', process_order, name='process_order'),
+    path('create-random-orders/', views.create_random_orders, name='create_random_orders'),
 
+    # Diğer URL tanımlamaları
     # Diğer URL desenleri...
 
 ]

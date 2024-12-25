@@ -42,8 +42,13 @@ class Product(models.Model):
     image = models.ImageField(upload_to='product_images/', null=True, blank=True)
 
     def save(self, *args, **kwargs):
+        # Eğer self.stock bir ifade ise gerçek değerini veritabanından al
+        if not isinstance(self.stock, int):
+            self.stock = Product.objects.get(pk=self.pk).stock
+
         if self.stock < 0:
-            raise ValidationError("Stok miktarı sıfırdan küçük olamaz.")
+            raise ValueError("Stok negatif olamaz")
+
         super().save(*args, **kwargs)
 
     def _str_(self):
