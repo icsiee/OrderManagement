@@ -143,6 +143,7 @@ def customer_dashboard(request):
 
 
 from django.contrib.auth.decorators import login_required
+from .models import Log
 
 from django.utils.timezone import now
 
@@ -181,6 +182,7 @@ def admin_dashboard(request):
 
     # Tüm müşterileri al
     customers = Customer.objects.all()
+    logs = Log.objects.all()  # Tüm log kayıtlarını getir
 
     # Tüm ürünleri al
     products = Product.objects.all()
@@ -190,6 +192,8 @@ def admin_dashboard(request):
         'orders': order_list,
         'customers': customers,
         'products': products,
+        'logs': logs,
+
     }
     return render(request, 'admin_dashboard.html', context)
 
@@ -636,25 +640,35 @@ def delete_all_products(request):
     return redirect("admin_dashboard")  # Admin dashboard'unuzun URL ismini yazın
 
 
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .models import Product
+
 def edit_product(request, product_id):
     product = get_object_or_404(Product, pk=product_id)
 
     if request.method == 'POST':
-        product_name = request.POST.get('product_name')
-        stock = request.POST.get('stock')
-        price = request.POST.get('price')
-        image = request.FILES.get('image')  # Eğer görsel yüklenirse
+        try:
+            product_name = request.POST.get('product_name')
+            stock = int(request.POST.get('stock'))
+            price = float(request.POST.get('price'))
+            image = request.FILES.get('image')
 
-        # Ürün bilgilerini güncelle
-        product.product_name = product_name
-        product.stock = stock
-        product.price = price
-        if image:
-            product.image = image
-        product.save()
+            # Ürün bilgilerini güncelle
+            product.product_name = product_name
+            product.stock = stock
+            product.price = price
+            if image:
+                product.image = image
 
-        messages.success(request, f"{product.product_name} başarıyla güncellendi.")
-        return redirect('admin_dashboard')  # Admin dashboard'una yönlendirme
+            product.save()
+            messages.success(request, f"{product.product_name} başarıyla güncellendi.")
+            return redirect('admin_dashboard')
+
+        except ValueError:
+            messages.error(request, "Lütfen geçerli bir stok ve fiyat değeri girin.")
+        except Exception as e:
+            messages.error(request, f"Güncelleme sırasında bir hata oluştu: {e}")
 
     return render(request, 'edit_product.html', {'product': product})
 
@@ -940,9 +954,18 @@ def delete_pending_order(request, order_id):
             'message': str(e)
         })
 
-from django.http import JsonResponse
-from .models import Customer
 
 from django.http import JsonResponse
 from .models import Customer
 
+# views.py
+from django.shortcuts import render
+from .models import Log
+
+# views.py
+from django.shortcuts import render
+from .models import Log
+
+def log_panel(request):
+    logs = Log.objects.all().order_by('-transaction_time')  # Logları zamana göre sırala (en yeni en üstte)
+    return render(request, 'admin_dashboard.html', {'logs': logs})
