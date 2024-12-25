@@ -43,6 +43,7 @@ urlpatterns = [
     path('get-pending-orders/', views.get_pending_orders, name='get_pending_orders'),
     path('delete-pending-orders/<int:order_id>/', views.delete_pending_order, name='delete_pending_order'),
     path('log_panel/', views.log_panel, name='log_panel'),
+    path('update_balance/', views.update_balance, name='update_balance'),
 
     # Diğer URL tanımlamaları
     # Diğer URL desenleri...

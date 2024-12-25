@@ -983,3 +983,23 @@ from .models import Log
 def log_panel(request):
     logs = Log.objects.all().order_by('-transaction_time')  # Logları zamana göre sırala (en yeni en üstte)
     return render(request, 'admin_dashboard.html', {'logs': logs})
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from .models import Customer
+
+# views.py
+from .models import Customer
+
+def update_balance(request):
+    customer = Customer.objects.get(id=request.user.id)  # customer_id yerine id kullanarak erişim sağlanır.
+    new_balance = request.POST.get('new_balance')
+    if new_balance:
+        # Yeni bakiye güncelleme işlemi
+        if 500 <= float(new_balance) <= 3000:  # Bakiye 500 ile 3000 arasında olmalı
+            customer.budget = new_balance
+            customer.save()
+        else:
+            # Geçerli aralık dışında bir bakiye girilmişse
+            messages.error(request, "Bakiye 500 ile 3000 arasında olmalıdır.")
+    return redirect('customer_dashboard')
