@@ -399,7 +399,7 @@ def add_to_cart(request):
         product_id = request.POST.get('product_id')
         quantity = request.POST.get('quantity')
 
-        # Girdi doğrulaması
+        # Validate input
         if not product_id or not quantity:
             return HttpResponse("Eksik veri gönderildi.", status=400)
 
@@ -408,51 +408,59 @@ def add_to_cart(request):
         except Product.DoesNotExist:
             return HttpResponse("Ürün bulunamadı.", status=404)
 
-
+        # Check stock availability
+        if product.stock < int(quantity):
+            messages.error(request, f"{product.product_name} stokta yetersiz. Maksimum {product.stock} adet ekleyebilirsiniz.")
             return redirect('customer_dashboard')
 
-        # Sepeti oluştur veya aktif sepeti al
+        # Get or create the active cart
         cart, created = Cart.objects.get_or_create(customer=request.user, is_active=True)
 
-        # Sepet öğesini kontrol et veya oluştur
+        # Get or create the cart item
         cart_item, item_created = CartItem.objects.get_or_create(cart=cart, product=product)
 
         if not item_created:
-            # Mevcut miktarı artırmadan önce, toplam miktarın 5'i geçmediğini kontrol et
             new_quantity = cart_item.quantity + int(quantity)
-            if new_quantity > 5:
-                # Hata mesajı ekle ve sepete eklemeyi yapma
-                messages.error(request, f"{product.product_name} için en fazla 5 adet sipariş verebilirsiniz.")
+            if new_quantity > 5 or new_quantity > product.stock:
+                messages.error(request, f"{product.product_name} için en fazla {min(5, product.stock)} adet sipariş verebilirsiniz.")
                 return redirect('customer_dashboard')
             cart_item.quantity = new_quantity
         else:
-            # Yeni miktarı belirle
-            cart_item.quantity = int(quantity)
+            cart_item.quantity = min(int(quantity), product.stock, 5)
 
-        # Maksimum 5 ürün limiti
-        cart_item.quantity = min(cart_item.quantity, 5)
+        # Save the updated cart item
+        cart_item.save()
 
-        # Gerekli alanları doldur
-        cart_item.save()  # Veritabanına kaydet
-
-        # Başarı mesajı
+        # Success message
         messages.success(request, f"{product.product_name} başarıyla sepete eklendi.")
-
-        return redirect('customer_dashboard')  # Sepet sayfasına yönlendir
-
+        return redirect('customer_dashboard')
 
 from django.contrib.auth.decorators import login_required
+
 
 @login_required
 def view_cart(request):
     try:
+        # Kullanıcının aktif sepetini al
         cart = Cart.objects.get(customer=request.user, is_active=True)
         cart_items = CartItem.objects.filter(cart=cart)
+
+        # Toplam sepet tutarını hesapla
+        total_price = sum(item.quantity * item.price for item in cart_items)
+
+        # Kullanıcının bütçesini al
+        user_budget = request.user.budget
     except Cart.DoesNotExist:
         cart_items = []
+        total_price = 0
+        user_budget = request.user.budget
 
-    return render(request, 'view_cart.html', {'cart_items': cart_items})
-
+    # Template'e verileri gönder
+    return render(request, 'view_cart.html', {
+        'cart_items': cart_items,
+        'total_price': total_price,
+        'user_budget': user_budget
+    })
 
 from django.contrib.auth.decorators import login_required
 
@@ -522,12 +530,17 @@ def checkout(request):
 from .models import Cart, CartItem, Order
 
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from datetime import datetime
+from django.contrib import messages
+from .models import Cart, CartItem, Order, Log
+from django.shortcuts import redirect, render, get_object_or_404
+from django.contrib.auth.decorators import login_required
 
 @login_required
 def order_checkout(request):
     if request.method == 'POST':
         try:
-            # Kullanıcının aktif sepetini getir
             cart = Cart.objects.get(customer=request.user, is_active=True)
             cart_items = CartItem.objects.filter(cart=cart)
 
@@ -535,60 +548,48 @@ def order_checkout(request):
                 messages.error(request, "Sepetinizde ürün bulunmuyor.")
                 return redirect('view_cart')
 
-            # Sipariş toplamını hesapla
+            # Calculate total price
             total_price = sum(item.quantity * item.price for item in cart_items)
 
-            # 15 saniye kontrolü (örnek)
-            request.session['checkout_start_time'] = datetime.now().timestamp()
-            current_time = datetime.now().timestamp()
-            start_time = request.session.get('checkout_start_time', current_time)
-            if (current_time - start_time) > 15:
-                messages.error(request, "Sipariş süresi doldu. Lütfen tekrar deneyin.")
+            # Check customer budget
+            if request.user.budget < total_price:
+                messages.error(request, "Bütçeniz yetersiz.")
                 return redirect('view_cart')
 
-            # Veritabanı işlemlerini bir transaction içinde yapalım
             with transaction.atomic():
-                # Sipariş oluştur ve aktif sepeti pasif yap
                 for item in cart_items:
+                    # Check stock again for safety
+                    if item.product.stock < item.quantity:
+                        messages.error(request, f"{item.product.product_name} stokta yetersiz.")
+                        return redirect('view_cart')
+
+                    # Deduct stock and create the order
+                    item.product.stock -= item.quantity
+                    item.product.save()
                     Order.objects.create(
                         customer=request.user,
                         product=item.product,
                         quantity=item.quantity,
                         total_price=item.quantity * item.price,
-                        order_status='Pending'  # Başlangıç durumu 'Pending'
+                        order_status='Pending'
                     )
 
-                # Sepeti pasif yap
+                # Deduct from customer budget
+                request.user.budget -= total_price
+                request.user.save()
+
+                # Deactivate the cart
                 cart.is_active = False
                 cart.save()
 
-            # Kullanıcıya bilgilendirme mesajı gönder
-            messages.success(
-                request,
-                f"Siparişiniz başarıyla oluşturuldu!"
-            )
-            print(request.user.customer_type)
-            Log.objects.create(
-                customer_id=request.user.id,
-                log_type='Bilgilendirme',
-                customer_type=request.user.customer_type,
-                product=cart.id,
-                quantity=500,
-                transaction_result='Satın alma başarılı'
-            )
-
-            # Checkout zamanı sıfırla
-            if 'checkout_start_time' in request.session:
-                del request.session['checkout_start_time']
-
+            messages.success(request, "Siparişiniz başarıyla oluşturuldu!")
             return redirect('customer_dashboard')
 
         except Cart.DoesNotExist:
             messages.error(request, "Aktif bir sepet bulunamadı.")
             return redirect('view_cart')
-    else:
-        return redirect('checkout')
 
+    return redirect('checkout')
 
 
 def add_default_products(request):
