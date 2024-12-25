@@ -644,6 +644,15 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from .models import Product
 
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .models import Product
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from .models import Product
+
+
 def edit_product(request, product_id):
     product = get_object_or_404(Product, pk=product_id)
 
@@ -669,6 +678,10 @@ def edit_product(request, product_id):
             messages.error(request, "Lütfen geçerli bir stok ve fiyat değeri girin.")
         except Exception as e:
             messages.error(request, f"Güncelleme sırasında bir hata oluştu: {e}")
+
+    # Sadece edit_product.html için mesaj gönder
+    if request.method == 'GET':  # Sadece sayfa açılırken bu mesaj gönderilsin
+        messages.info(request, "Diğer işlemler beklemeye alındı.")
 
     return render(request, 'edit_product.html', {'product': product})
 
