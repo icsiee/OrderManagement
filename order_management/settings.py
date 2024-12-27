@@ -143,15 +143,13 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# settings.py
-CHANNEL_LAYERS = {
+CACHES = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [("127.0.0.1", 6379)],
-        },
-    },
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
 }
+
+
 
 
 # settings.py

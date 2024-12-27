@@ -36,11 +36,14 @@ urlpatterns = [
     path('order/<int:order_id>/', views.order_detail, name='order_detail'),
     path('delete_order/<int:order_id>/', views.delete_order, name='delete_order'),
     path('complete-order/<int:order_id>/', process_order, name='process_order'),
-path('completed-orders/', views.completed_orders, name='completed_orders'),
+    path('completed-orders/', views.completed_orders, name='completed_orders'),
     path('cancelled-orders/', views.cancelled_orders, name='cancelled_orders'),
-    path('get-pending-orders/', views.get_pending_orders, name='get_pending_orders'),
     path('process-order/<int:order_id>/', process_order, name='process_order'),
     path('create-random-orders/', views.create_random_orders, name='create_random_orders'),
+    path('get-pending-orders/', views.get_pending_orders, name='get_pending_orders'),
+    path('delete-pending-orders/<int:order_id>/', views.delete_pending_order, name='delete_pending_order'),
+    path('log_panel/', views.log_panel, name='log_panel'),
+    path('update_balance/', views.update_balance, name='update_balance'),
 
     # Diğer URL tanımlamaları
     # Diğer URL desenleri...
