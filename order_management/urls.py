@@ -14,3 +14,14 @@ from django.conf.urls.static import static
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# orders/urls.py
+
+from django.urls import path
+from . import consumers
+from django.urls import re_path
+
+# WebSocket yolunu consumer'a yönlendir
+websocket_urlpatterns = [
+    re_path(r'ws/orders/$', consumers.OrderConsumer.as_asgi()),
+]

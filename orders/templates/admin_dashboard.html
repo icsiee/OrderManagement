@@ -53,6 +53,44 @@
             animation: slideIn 0.5s ease-in-out;
         }
     </style>
+    <style>
+    /* Loglar için kayma animasyonu */
+    .log-container {
+        max-height: 400px; /* Logların göstereceği alanın yüksekliği */
+        overflow-y: auto; /* Yalnızca dikey kaydırma */
+        display: flex;
+        flex-direction: column-reverse; /* Yeniden eklenen logların alta kaymasını sağlamak */
+        animation: slide-up 1s ease-out;
+    }
+
+    @keyframes slide-up {
+        0% {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Her bir log satırına animasyon */
+    .log-row {
+        animation: log-slide 1s ease-out;
+    }
+
+    @keyframes log-slide {
+        0% {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+</style>
+
 </head>
 
 <body>
@@ -111,7 +149,6 @@
                     <th>Sipariş ID</th>
                     <th>Müşteri</th>
                     <th>Sipariş Adı</th>
-
                     <th>Adet</th>
                     <th>Toplam Fiyat</th>
                     <th>Bekleme Süresi (saniye)</th>
@@ -126,7 +163,6 @@
                     <td><a href="{% url 'order_detail' order_id=order.order_id %}">{{ order.order_id }}</a></td>
                     <td>{{ order.customer.customer_name }}</td>
                     <td>{{ order.product.product_name }}</td>
-
                     <td>{{ order.quantity }}</td>
                     <td>{{ order.total_price }}</td>
                     <td class="waiting-time" data-priority-base="{{ order.priority_base }}">
@@ -146,7 +182,6 @@
                     </td>
                     <td>
                         <a href="{% url 'delete_order' order_id=order.order_id %}" class="btn btn-danger btn-sm"
-
                            onclick="return confirm('Bu siparişi silmek istediğinizden emin misiniz?');">
                             Sil
                         </a>
@@ -157,6 +192,77 @@
         </table>
     </div>
 
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const ordersTableBody = document.getElementById('orders-table-body');
+            const premiumOrders = Array.from(ordersTableBody.querySelectorAll('.premium-customer')); // Premium siparişleri al
+            const standardOrders = Array.from(ordersTableBody.querySelectorAll('.standard-customer')); // Standart siparişleri al
+
+            // Premium siparişleri yukarı kaydırarak öncelik sırasına koy
+            premiumOrders.forEach((order, index) => {
+                // Premium siparişlere animasyon ekle
+                setTimeout(() => {
+                    order.classList.add('animating');
+                    ordersTableBody.prepend(order); // Premium siparişi en üst sıraya taşı
+                }, index * 500); // Her premium sipariş için 0.5 saniye gecikme
+            });
+
+            // Öncelik sırasına göre standart siparişler kaldığı yerden devam eder
+            standardOrders.forEach((order, index) => {
+                setTimeout(() => {
+                    order.classList.add('animating');
+                }, premiumOrders.length * 500 + index * 500); // Premium siparişlerin animasyonunun ardından başlar
+            });
+        });
+    </script>
+<script>
+   // Siparişleri sıralama fonksiyonu
+function sortOrdersByPriority() {
+    const rows = Array.from(document.querySelectorAll('tbody tr')); // Tablo satırlarını al
+
+    // Premium ve standard müşterileri ayıralım
+    const premiumOrders = rows.filter(row => row.classList.contains('premium-customer'));
+    const standardOrders = rows.filter(row => row.classList.contains('standard-customer'));
+
+    // Premium siparişleri öncelik skoruna göre azalan sırada sıralıyoruz
+    premiumOrders.sort((a, b) => {
+        const priorityA = parseFloat(a.querySelector('.priority-score').innerText);
+        const priorityB = parseFloat(b.querySelector('.priority-score').innerText);
+        return priorityB - priorityA; // Azalan sıralama
+    });
+
+    // Standard siparişleri öncelik skoruna göre azalan sırada sıralıyoruz
+    standardOrders.sort((a, b) => {
+        const priorityA = parseFloat(a.querySelector('.priority-score').innerText);
+        const priorityB = parseFloat(b.querySelector('.priority-score').innerText);
+        return priorityB - priorityA; // Azalan sıralama
+    });
+
+    // Sıralanmış siparişleri birleştiriyoruz
+    const sortedOrders = [...premiumOrders, ...standardOrders];
+
+    // Tabloyu temizle ve yeni sıralı siparişleri ekle
+    const tableBody = document.getElementById('orders-table-body');
+    tableBody.innerHTML = ''; // Tabloyu temizle
+
+    // Satırları sıralayıp animasyon ekleyerek tabloya ekliyoruz
+    sortedOrders.forEach((row, index) => {
+        row.classList.add('animating'); // Animasyon sınıfını ekle
+
+        // Kaydırma animasyonunun zamanlaması
+        setTimeout(() => {
+            tableBody.appendChild(row); // Satırı tabloya ekle
+            row.classList.remove('animating'); // Animasyonu kaldır
+        }, index * 100); // Her satır için 100ms gecikme
+    });
+}
+
+</script>
+
+
+</body>
+
+</html>
 <script>
     // Update waiting time and priority
     function updateWaitingAndPriority() {
@@ -288,6 +394,7 @@
             }, index * 1000); // Her sipariş için 1 saniye gecikme
         });
     });
+
 </script>
 
 
@@ -453,49 +560,51 @@
             <button type="submit" class="btn btn-primary">Ürün Ekle</button>
         </form>
 
-        <!-- ========================================= -->
-        <!-- Loglama ve İzleme Paneli (YENİ EKLENEN KISIM) -->
-        <!-- ========================================= -->
-        <h2 class="mt-5">Loglama ve İzleme Paneli</h2>
-        <p>Gerçekleşen tüm işlemler ve hata/uyarı/bilgilendirme logları aşağıda listelenir.</p>
 
-         <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Log ID</th>
-                    <th>Müşteri ID</th>
-                    <th>Log Türü</th>
-                    <th>Müşteri Türü</th>
-                    <th>Ürün</th>
-                    <th>Satın Alınan Miktar</th>
-                    <th>İşlem Zamanı</th>
-                    <th>İşlem Sonucu</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for log in logs %}
-                <tr>
-                    <td>{{ log.log_id }}</td>
-                    <td>{{ log.customer_id }}</td>
-                    <td>{{ log.log_type }}</td>
-                    <td>{{ log.customer_type }}</td>
-                    <td>{{ log.product }}</td>
-                    <td>{{ log.quantity }}</td>
-                    <td>{{ log.transaction_time }}</td>
-                    <td>{{ log.transaction_result }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8" class="text-center">Hiç log kaydı bulunamadı.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <!-- ========================================= -->
-        <!-- Loglama ve İzleme Paneli Bitişi -->
-        <!-- ========================================= -->
+<!-- ========================================= -->
+<!-- Loglama ve İzleme Paneli (YENİ EKLENEN KISIM) -->
+<!-- ========================================= -->
+<h2 class="mt-5">Loglama ve İzleme Paneli</h2>
+<p>Gerçekleşen tüm işlemler ve hata/uyarı/bilgilendirme logları aşağıda listelenir.</p>
 
-    </div> <!-- container sonu -->
+<div class="log-container">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Log ID</th>
+                <th>Müşteri ID</th>
+                <th>Log Türü</th>
+                <th>Müşteri Türü</th>
+                <th>Ürün</th>
+                <th>Satın Alınan Miktar</th>
+                <th>İşlem Zamanı</th>
+                <th>İşlem Sonucu</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr class="log-row">
+                <td>{{ log.log_id }}</td>
+                <td>{{ log.customer_id }}</td>
+                <td>{{ log.log_type }}</td>
+                <td>{{ log.customer_type }}</td>
+                <td>{{ log.product }}</td>
+                <td>{{ log.quantity }}</td>
+                <td>{{ log.transaction_time }}</td>
+                <td>{{ log.transaction_result }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" class="text-center">Hiç log kaydı bulunamadı.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+        </div>
+<!-- ========================================= -->
+<!-- Loglama ve İzleme Paneli Bitişi -->
+<!-- ========================================= -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
