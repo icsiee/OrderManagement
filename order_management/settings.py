@@ -83,7 +83,6 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'order_management.wsgi.application'
 
 
 # Database
@@ -93,12 +92,13 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'order_db',  # Veritabanı ismi
-        'USER': 'ezgi',  # MySQL kullanıcı adı
-        'PASSWORD': 'Ke1994+-7645@',  # MySQL şifreniz
+        'USER': 'root',  # MySQL kullanıcı adı
+        'PASSWORD': '1234',  # MySQL şifreniz
         'HOST': 'localhost',
         'PORT': '3306',
     }
 }
+WSGI_APPLICATION = 'order_management.wsgi.application'
 
 ASGI_APPLICATION = 'order_management.asgi.application'
 

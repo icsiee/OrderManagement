@@ -41,6 +41,32 @@
 
       <button type="submit" class="btn btn-primary">Güncelle</button>
   </form>
+<script>
+    const products = {}; // Mevcut ürün verilerini saklamak için
+
+    const updateChart = (productData) => {
+        const productIndex = labels.indexOf(productData.product_name);
+        if (productIndex !== -1) {
+            stocks[productIndex] = productData.stock;
+            stockChart.update();
+        }
+    };
+
+    // WebSocket bağlantısı
+    const socket = new WebSocket('ws://localhost:8000/ws/products/');
+
+    socket.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+        console.log("Ürün güncellemesi alındı:", data);
+
+        updateChart(data); // Gelen güncellemeyle grafiği güncelle
+    };
+
+    socket.onclose = function () {
+        console.error("WebSocket bağlantısı kapandı.");
+    };
+</script>
+
 
   <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary" style="margin-top: 20px;">Geri Dön</a>
 {% endblock %}

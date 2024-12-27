@@ -17,11 +17,7 @@ if settings.DEBUG:
 
 # orders/urls.py
 
-from django.urls import path
-from . import consumers
+from orders import consumers
 from django.urls import re_path
 
-# WebSocket yolunu consumer'a yönlendir
-websocket_urlpatterns = [
-    re_path(r'ws/orders/$', consumers.OrderConsumer.as_asgi()),
-]
+

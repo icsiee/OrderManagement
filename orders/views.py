@@ -40,15 +40,73 @@ def register(request):
 
     return render(request, 'register.html', {'form': form})
 
-
-
-
-# Giriş (Login) fonksiyonu
-from django.contrib.auth import login
+from django.contrib.auth import authenticate, login
 from django.contrib import messages
-from django.shortcuts import render, redirect
-from django.utils.timezone import now
-from django.contrib.auth.hashers import check_password
+from .models import Log
+
+def handle_login(request, customer_name, password, is_admin_login=False):
+    try:
+        customer = Customer.objects.get(customer_name=customer_name)
+
+        # Kullanıcı türü doğrulaması
+        if is_admin_login and not customer.is_admin:
+            messages.error(request, "Müşteri hesabıyla admin girişi yapamazsınız.")
+            Log.objects.create(
+                log_type="Hata",
+                customer_id=customer.id,
+                customer_type=customer.customer_type,
+                product="",
+                quantity=0,
+                transaction_result="Müşteri hesabıyla admin giriş denemesi."
+            )
+            return None
+
+        if not is_admin_login and customer.is_admin:
+            messages.error(request, "Admin kullanıcı müşteri formunu kullanamaz.")
+            Log.objects.create(
+                log_type="Hata",
+                customer_id=customer.id,
+                customer_type=customer.customer_type,
+                product="",
+                quantity=0,
+                transaction_result="Admin hesabıyla müşteri giriş denemesi."
+            )
+            return None
+
+        # Şifre doğrulama
+        if authenticate(request, customer_name=customer_name, password=password):
+            login(request, customer)
+            Log.objects.create(
+                log_type="Bilgilendirme",
+                customer_id=customer.id,
+                customer_type=customer.customer_type,
+                product="",
+                quantity=0,
+                transaction_result="Başarılı giriş."
+            )
+            return customer
+        else:
+            messages.error(request, "Şifre hatalı.")
+            Log.objects.create(
+                log_type="Hata",
+                customer_id=customer.id,
+                customer_type=customer.customer_type,
+                product="",
+                quantity=0,
+                transaction_result="Hatalı giriş denemesi: Şifre hatalı."
+            )
+    except Customer.DoesNotExist:
+        messages.error(request, "Böyle bir kullanıcı bulunamadı.")
+        Log.objects.create(
+            log_type="Hata",
+            customer_id=None,
+            customer_type=None,
+            product="",
+            quantity=0,
+            transaction_result="Hatalı giriş denemesi: Kullanıcı bulunamadı."
+        )
+    return None
+
 
 def login_view(request):
     if request.method == "POST":
@@ -137,111 +195,35 @@ def logout_view(request):
 
 
 @csrf_exempt
-
 def customer_login(request):
-    customer_messages = []  # Müşteri girişine özel mesajlar
     if request.method == "POST":
         customer_name = request.POST.get("customer_name")
         password = request.POST.get("password")
 
-        try:
-            customer = Customer.objects.get(customer_name=customer_name)
+        customer = handle_login(request, customer_name, password, is_admin_login=False)
+        if customer:
+            # Özel oturum anahtarı ekle
+            request.session[f"user_session_{customer.id}"] = customer.customer_name
+            return redirect('customer_dashboard')
 
-            if customer.is_admin:  # Admin müşteri girişine izin verilmez
-                customer_messages.append("Admin kullanıcı müşteri formunu kullanamaz.")
-            elif check_password(password, customer.password):
-                login(request, customer)
-                messages.success(request, "Müşteri girişi başarılı!")
-                return redirect('customer_dashboard')  # Başarıyla giriş yaptıktan sonra customer_dashboard sayfasına yönlendir
-            else:
-                customer_messages.append("Şifre hatalı.")
-        except Customer.DoesNotExist:
-            customer_messages.append("Böyle bir müşteri bulunamadı.")
-
-    return render(request, 'registration/login.html', {'customer_messages': customer_messages})
+    return render(request, 'registration/login.html')
 
 
 
 from django.contrib.auth import login
-from django.contrib.auth.hashers import check_password
 
-
-
-from django.contrib.auth import login
-from django.contrib import messages
-from django.shortcuts import render, redirect
-from django.utils.timezone import now
-from .models import Customer, Log
 from django.contrib.auth.hashers import check_password
 @csrf_exempt
 def admin_login(request):
-    admin_messages = []  # Admin girişine özel mesajlar
     if request.method == "POST":
         customer_name = request.POST.get("customer_name")
         password = request.POST.get("password")
 
-        try:
-            admin = Customer.objects.get(customer_name=customer_name)
+        admin = handle_login(request, customer_name, password, is_admin_login=True)
+        if admin:
+            return redirect('admin_dashboard')  # Admin paneline yönlendirme
 
-            if not admin.is_admin:  # Müşteri admin formunu kullanamaz
-                admin_messages.append("Müşteri hesabıyla admin girişi yapamazsınız.")
-
-                # Log kaydı: Müşteri admin giriş formunu kullandı
-                Log.objects.create(
-                    log_type="Hata",
-                    customer_id=admin.id,
-                    customer_type=admin.customer_type,
-                    product="",  # Admin login işlemi ürün bilgisi içermez
-                    quantity=0,  # Admin login işlemi miktar bilgisi içermez
-                    transaction_result="Müşteri hesabıyla admin giriş denemesi.",
-
-                )
-            elif check_password(password, admin.password):
-                login(request, admin)
-
-                # İlk defa giriş yapıldığını işaretle
-                request.session['admin_logged_in'] = True
-
-                # Log kaydı: Başarılı giriş
-                Log.objects.create(
-                    log_type="Bilgilendirme",
-                    customer_id=admin.id,
-                    customer_type=admin.customer_type,
-                    product="",  # Admin login işlemi ürün bilgisi içermez
-                    quantity=0,  # Admin login işlemi miktar bilgisi içermez
-                    transaction_result="Admin giriş yaptı.",
-
-                )
-
-                return redirect('admin_dashboard')
-            else:
-                admin_messages.append("Şifre hatalı.")
-
-                # Log kaydı: Hatalı şifre
-                Log.objects.create(
-                    log_type="Hata",
-                    customer_id=admin.id,
-                    customer_type=admin.customer_type,
-                    product="",
-                    quantity=0,
-                    transaction_result="Hatalı giriş denemesi: Şifre hatalı.",
-
-                )
-        except Customer.DoesNotExist:
-            admin_messages.append("Böyle bir admin bulunamadı.")
-
-            # Log kaydı: Admin bulunamadı
-            Log.objects.create(
-                log_type="Hata",
-                customer_id=None,  # Kullanıcı bulunamadığı için ID yok
-                customer_type=None,  # Kullanıcı bulunamadığı için tür yok
-                product="",
-                quantity=0,
-                transaction_result="Hatalı giriş denemesi: Admin bulunamadı.",
-
-            )
-
-    return render(request, 'registration/login.html', {'admin_messages': admin_messages})
+    return render(request, 'registration/login.html')
 
 
 
@@ -270,22 +252,26 @@ from django.contrib.auth.decorators import login_required
 
 from django.utils.timezone import now
 
+from django.utils import timezone
+
 def admin_dashboard(request):
     # Tüm siparişleri al
     orders = Order.objects.filter(order_status='Pending')
 
-    logs=Log.objects.all()
     # Sipariş detaylarını işlemek için bir liste oluştur
     order_list = []
     for order in orders:
-        # Bekleme süresini hesapla (örneğin, sipariş oluşturulma tarihinden itibaren geçen süre)
-        waiting_time_seconds = (now() - order.order_date).total_seconds()
+        # Bekleme süresini hesapla (siparişin oluşturulma tarihi ile şu anki zaman arasındaki fark)
+        waiting_time_seconds = (timezone.now() - order.order_date).total_seconds()
 
-        # Müşteri türüne göre öncelik tabanı belirle
+        # Temel öncelik skoru, Premium için 15, Normal için 10
         priority_base = 15 if order.customer.customer_type == 'Premium' else 10
 
+        # Bekleme süresi ağırlığı
+        waiting_time_weight = 0.5
+
         # Öncelik skoru hesapla
-        priority_score = priority_base + (waiting_time_seconds / 60 * 0.5)  # Dakika başına 0.5 artış
+        priority_score = priority_base + (waiting_time_seconds * waiting_time_weight)
 
         # Siparişi listeye ekle
         order_list.append({
@@ -305,7 +291,9 @@ def admin_dashboard(request):
 
     # Tüm müşterileri al
     customers = Customer.objects.all()
-    logs = Log.objects.all()  # Tüm log kayıtlarını getir
+
+    # Tüm log kayıtlarını getir
+    logs = Log.objects.all()
 
     # Tüm ürünleri al
     products = Product.objects.all()
@@ -316,8 +304,8 @@ def admin_dashboard(request):
         'customers': customers,
         'products': products,
         'logs': logs,
-
     }
+
     return render(request, 'admin_dashboard.html', context)
 
 
@@ -687,15 +675,6 @@ def view_cart(request):
 
 from django.contrib.auth.decorators import login_required
 
-# Sepet öğesi miktarını güncelleme
-# views.py
-from django.shortcuts import get_object_or_404, redirect
-from django.http import JsonResponse
-from .models import CartItem
-
-# views.py
-from django.shortcuts import render, get_object_or_404, redirect
-from .models import CartItem
 
 def update_cart_item(request, item_id):
     if request.method == 'POST':
@@ -1057,7 +1036,6 @@ from django.views.decorators.csrf import csrf_exempt
 
 from orders.models import Order, Log, Product, Customer
 
-
 @csrf_exempt
 def process_order(request, order_id):
     try:
@@ -1072,6 +1050,9 @@ def process_order(request, order_id):
         customer = order.customer
         product = order.product
         quantity = order.quantity
+
+        # Toplam fiyatı hesaplayın
+        total_price = product.price * quantity
 
         # İşlemleri atomik bir blok içinde gerçekleştir (transaction.atomic)
         with transaction.atomic():

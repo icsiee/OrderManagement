@@ -193,27 +193,28 @@
     </div>
 
     <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const ordersTableBody = document.getElementById('orders-table-body');
-            const premiumOrders = Array.from(ordersTableBody.querySelectorAll('.premium-customer')); // Premium siparişleri al
-            const standardOrders = Array.from(ordersTableBody.querySelectorAll('.standard-customer')); // Standart siparişleri al
+document.addEventListener("DOMContentLoaded", function () {
+    const ordersTableBody = document.getElementById('orders-table-body');
+    const premiumOrders = Array.from(ordersTableBody.querySelectorAll('.premium-customer')); // Premium siparişleri al
+    const standardOrders = Array.from(ordersTableBody.querySelectorAll('.standard-customer')); // Standart siparişleri al
 
-            // Premium siparişleri yukarı kaydırarak öncelik sırasına koy
-            premiumOrders.forEach((order, index) => {
-                // Premium siparişlere animasyon ekle
-                setTimeout(() => {
-                    order.classList.add('animating');
-                    ordersTableBody.prepend(order); // Premium siparişi en üst sıraya taşı
-                }, index * 500); // Her premium sipariş için 0.5 saniye gecikme
-            });
+    // Premium siparişleri yukarı kaydırarak öncelik sırasına koy
+    premiumOrders.forEach((order, index) => {
+        // Premium siparişlere animasyon ekle
+        setTimeout(() => {
+            order.classList.add('animating');
+            ordersTableBody.prepend(order); // Premium siparişi en üst sıraya taşı
+        }, index * 500); // Her premium sipariş için 0.5 saniye gecikme
+    });
 
-            // Öncelik sırasına göre standart siparişler kaldığı yerden devam eder
-            standardOrders.forEach((order, index) => {
-                setTimeout(() => {
-                    order.classList.add('animating');
-                }, premiumOrders.length * 500 + index * 500); // Premium siparişlerin animasyonunun ardından başlar
-            });
-        });
+    // Öncelik sırasına göre standart siparişler kaldığı yerden devam eder
+    standardOrders.forEach((order, index) => {
+        setTimeout(() => {
+            order.classList.add('animating');
+        }, premiumOrders.length * 500 + index * 500); // Premium siparişlerin animasyonunun ardından başlar
+    });
+});
+
     </script>
 <script>
    // Siparişleri sıralama fonksiyonu
@@ -264,28 +265,28 @@ function sortOrdersByPriority() {
 
 </html>
 <script>
-    // Update waiting time and priority
-    function updateWaitingAndPriority() {
-        const rows = document.querySelectorAll('tbody tr'); // Select table rows
+// Update waiting time and priority
+function updateWaitingAndPriority() {
+    const rows = document.querySelectorAll('tbody tr'); // Select table rows
 
-        rows.forEach(row => {
-            const waitingTimeCell = row.querySelector('.waiting-time');
-            const priorityScoreCell = row.querySelector('.priority-score');
+    rows.forEach(row => {
+        const waitingTimeCell = row.querySelector('.waiting-time');
+        const priorityScoreCell = row.querySelector('.priority-score');
 
-            // Increment waiting time
-            let waitingTime = parseInt(waitingTimeCell.innerText, 10);
-            waitingTime += 1;
-            waitingTimeCell.innerText = waitingTime;
+        // Increment waiting time only once
+        let waitingTime = parseInt(waitingTimeCell.innerText, 10);
+        waitingTime += 1;  // Increment once
+        waitingTimeCell.innerText = waitingTime;  // Update displayed waiting time
 
-            // Update priority score
-            const basePriority = parseFloat(waitingTimeCell.dataset.priorityBase);
-            const newPriorityScore = basePriority + (waitingTime * 0.5);
-            priorityScoreCell.innerText = newPriorityScore.toFixed(2);
-        });
-    }
+        // Update priority score
+        const basePriority = parseFloat(waitingTimeCell.dataset.priorityBase);
+        const newPriorityScore = basePriority + (waitingTime * 0.5);
+        priorityScoreCell.innerText = newPriorityScore.toFixed(2);  // Update the priority score
+    });
+}
 
-    // Update waiting time and priority every second
-    setInterval(updateWaitingAndPriority, 1000);
+// Update waiting time and priority every second (only one interval)
+setInterval(updateWaitingAndPriority, 1000);
 
     // Listeyi temizlemek ve güncellemek için AJAX fonksiyonu
     function refreshPendingOrders() {
@@ -616,8 +617,7 @@ function sortOrdersByPriority() {
             });
         }
 
-        // Her 1 saniyede bir bekleme süresini güncelle
-        setInterval(updateWaitingTimes, 1000);
+
     </script>
 </body>
 
